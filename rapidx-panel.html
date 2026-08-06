@@ -1,0 +1,1435 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RAPIDX Order Panel</title>
+  <style>
+    :root {
+      --ink: #111318;
+      --muted: #69707d;
+      --line: #dce1e8;
+      --paper: #ffffff;
+      --soft: #f4f6f8;
+      --soft-2: #e9edf2;
+      --red: #e1293f;
+      --red-dark: #b7192d;
+      --green: #098a5b;
+      --teal: #008f9a;
+      --amber: #b77900;
+      --shadow: 0 20px 60px rgba(17, 19, 24, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      background:
+        linear-gradient(135deg, rgba(225, 41, 63, 0.08), transparent 32%),
+        linear-gradient(215deg, rgba(0, 143, 154, 0.08), transparent 30%),
+        var(--soft);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 22px;
+      background: #111318;
+      color: #f8fafc;
+      overflow-y: auto;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 22px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .logo-mark {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--red), #ff6b72);
+      color: #fff;
+      font-weight: 900;
+      letter-spacing: 0;
+      box-shadow: 0 12px 28px rgba(225, 41, 63, 0.32);
+    }
+
+    .brand strong {
+      display: block;
+      font-size: 18px;
+      letter-spacing: 0.08em;
+    }
+
+    .brand span {
+      display: block;
+      margin-top: 3px;
+      color: #aeb7c4;
+      font-size: 12px;
+    }
+
+    .nav {
+      display: grid;
+      gap: 8px;
+      margin-top: 24px;
+    }
+
+    .nav a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 12px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      color: #c7d0dd;
+      text-decoration: none;
+      transition: 0.18s ease;
+    }
+
+    .nav a:hover,
+    .nav a:focus {
+      border-color: rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+      outline: none;
+    }
+
+    .nav a.active {
+      background: #fff;
+      color: var(--ink);
+    }
+
+    .sidebar-panel {
+      margin-top: 26px;
+      padding: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .sidebar-panel p {
+      margin: 0 0 8px;
+      color: #aeb7c4;
+      font-size: 12px;
+    }
+
+    .sidebar-panel strong {
+      display: block;
+      font-size: 22px;
+    }
+
+    .main {
+      min-width: 0;
+      padding: 22px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 18px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.82);
+      box-shadow: 0 10px 35px rgba(17, 19, 24, 0.06);
+      backdrop-filter: blur(12px);
+    }
+
+    .eyebrow {
+      margin: 0 0 4px;
+      color: var(--red);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin-top: 0;
+    }
+
+    h1 {
+      margin-bottom: 0;
+      font-size: clamp(28px, 4vw, 42px);
+      line-height: 1.03;
+      letter-spacing: 0;
+    }
+
+    .topbar-subtitle {
+      margin: 8px 0 0;
+      color: var(--muted);
+      max-width: 780px;
+      line-height: 1.55;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 40px;
+      padding: 10px 13px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font-weight: 750;
+      text-decoration: none;
+      transition: 0.18s ease;
+    }
+
+    .btn:hover,
+    .btn:focus {
+      border-color: #c5ccd6;
+      transform: translateY(-1px);
+      outline: none;
+    }
+
+    .btn.primary {
+      border-color: var(--red);
+      background: var(--red);
+      color: #fff;
+      box-shadow: 0 12px 28px rgba(225, 41, 63, 0.22);
+    }
+
+    .btn.primary:hover,
+    .btn.primary:focus {
+      background: var(--red-dark);
+    }
+
+    .btn.dark {
+      border-color: #111318;
+      background: #111318;
+      color: #fff;
+    }
+
+    .btn.ghost {
+      background: transparent;
+    }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .overview {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin-bottom: 16px;
+    }
+
+    .metric {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--paper);
+      box-shadow: 0 12px 30px rgba(17, 19, 24, 0.06);
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 760;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 10px;
+      font-size: 28px;
+      letter-spacing: 0;
+    }
+
+    .metric small {
+      display: block;
+      margin-top: 7px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    .workbench {
+      display: grid;
+      grid-template-columns: minmax(0, 1.55fr) minmax(340px, 0.75fr);
+      align-items: start;
+      gap: 16px;
+    }
+
+    .section {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: 0 14px 42px rgba(17, 19, 24, 0.07);
+      overflow: hidden;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 17px 18px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, #fff, #f9fafb);
+    }
+
+    .section-header h2 {
+      margin-bottom: 5px;
+      font-size: 19px;
+      letter-spacing: 0;
+    }
+
+    .section-header p {
+      margin-bottom: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .tab {
+      border-color: var(--line);
+      background: #fff;
+      color: var(--muted);
+    }
+
+    .tab.active {
+      border-color: #111318;
+      background: #111318;
+      color: #fff;
+    }
+
+    .panel-body {
+      padding: 18px;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      min-width: 820px;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 850;
+      letter-spacing: 0.12em;
+      text-align: left;
+      text-transform: uppercase;
+    }
+
+    th,
+    td {
+      padding: 13px 12px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+
+    td strong {
+      display: block;
+      margin-bottom: 3px;
+    }
+
+    td small {
+      color: var(--muted);
+    }
+
+    tbody tr:hover {
+      background: #f9fafb;
+    }
+
+    .money {
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 9px;
+      border-radius: 999px;
+      background: #f0f3f7;
+      color: #394150;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .pill.red {
+      background: rgba(225, 41, 63, 0.11);
+      color: var(--red-dark);
+    }
+
+    .pill.green {
+      background: rgba(9, 138, 91, 0.12);
+      color: var(--green);
+    }
+
+    .pill.teal {
+      background: rgba(0, 143, 154, 0.12);
+      color: #006e76;
+    }
+
+    .pill.amber {
+      background: rgba(183, 121, 0, 0.13);
+      color: var(--amber);
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+    }
+
+    label {
+      color: #3d4654;
+      font-size: 12px;
+      font-weight: 820;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      border: 1px solid #cdd4de;
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      padding: 11px 12px;
+      outline: none;
+      transition: 0.18s ease;
+    }
+
+    textarea {
+      min-height: 76px;
+      resize: vertical;
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--red);
+      box-shadow: 0 0 0 3px rgba(225, 41, 63, 0.12);
+    }
+
+    .form-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-bottom: 14px;
+      padding: 5px;
+      border-radius: 8px;
+      background: var(--soft-2);
+    }
+
+    .form-tabs button {
+      min-height: 36px;
+      border: 0;
+      border-radius: 7px;
+      background: transparent;
+      color: #4a5361;
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    .form-tabs button.active {
+      background: #fff;
+      color: var(--ink);
+      box-shadow: 0 8px 20px rgba(17, 19, 24, 0.08);
+    }
+
+    .form {
+      display: none;
+      gap: 12px;
+    }
+
+    .form.active {
+      display: grid;
+    }
+
+    .form-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .status-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .status-item {
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .status-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .progress {
+      height: 9px;
+      border-radius: 999px;
+      background: #e7ebf0;
+      overflow: hidden;
+    }
+
+    .progress span {
+      display: block;
+      height: 100%;
+      width: var(--value);
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--red), var(--teal));
+    }
+
+    .timeline {
+      display: grid;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .timeline-row {
+      display: grid;
+      grid-template-columns: 110px minmax(0, 1fr);
+      gap: 12px;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .timeline-row:last-child {
+      border-bottom: 0;
+    }
+
+    .timeline-row time {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .timeline-row strong {
+      display: block;
+      margin-bottom: 3px;
+    }
+
+    .timeline-row p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .empty {
+      padding: 28px;
+      border: 1px dashed #c8d0db;
+      border-radius: 8px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 20;
+      display: none;
+      max-width: min(360px, calc(100vw - 36px));
+      padding: 12px 14px;
+      border-radius: 8px;
+      background: #111318;
+      color: #fff;
+      box-shadow: var(--shadow);
+      font-weight: 750;
+    }
+
+    .toast.show {
+      display: block;
+      animation: slide 0.2s ease;
+    }
+
+    @keyframes slide {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 1120px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: static;
+        height: auto;
+      }
+
+      .nav {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+
+      .sidebar-panel {
+        display: none;
+      }
+
+      .workbench {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .main,
+      .sidebar {
+        padding: 14px;
+      }
+
+      .topbar,
+      .section-header {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .actions {
+        justify-content: stretch;
+      }
+
+      .actions .btn,
+      .form-actions .btn {
+        flex: 1;
+      }
+
+      .overview,
+      .split {
+        grid-template-columns: 1fr;
+      }
+
+      .nav {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .timeline-row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo-mark">RX</div>
+        <div>
+          <strong>RAPIDX</strong>
+          <span>Client control panel</span>
+        </div>
+      </div>
+
+      <nav class="nav" aria-label="Main sections">
+        <a href="#orders" class="active">Orders</a>
+        <a href="#passbook">Passbook</a>
+        <a href="#production">Production</a>
+        <a href="#add-record">Add Record</a>
+      </nav>
+
+      <div class="sidebar-panel">
+        <p>Next order number</p>
+        <strong id="nextOrderCode">RPDX-2026-004</strong>
+      </div>
+
+      <div class="sidebar-panel">
+        <p>Data status</p>
+        <strong>Auto saved</strong>
+        <p style="margin-top: 8px;">Records stay in this browser. Use export before changing device.</p>
+      </div>
+    </aside>
+
+    <main class="main">
+      <section class="topbar">
+        <div>
+          <p class="eyebrow">Order command center</p>
+          <h1>RAPIDX order, payment and production panel</h1>
+          <p class="topbar-subtitle">Track every RAPIDX order series, lump sum receipts, factory payments, and mass production progress in one fast working screen.</p>
+        </div>
+        <div class="actions">
+          <button class="btn" id="exportJsonBtn" type="button">Export JSON</button>
+          <button class="btn" id="exportCsvBtn" type="button">Export CSV</button>
+          <button class="btn primary" id="printBtn" type="button">Print Report</button>
+        </div>
+      </section>
+
+      <section class="grid overview" aria-label="Overview">
+        <article class="metric">
+          <span>Total order value</span>
+          <strong id="totalValue">$0</strong>
+          <small>Existing plus new RAPIDX orders.</small>
+        </article>
+        <article class="metric">
+          <span>Client balance</span>
+          <strong id="clientBalance">$0</strong>
+          <small>Payments received minus payments made.</small>
+        </article>
+        <article class="metric">
+          <span>Active orders</span>
+          <strong id="activeOrders">0</strong>
+          <small>Orders not completed or shipped.</small>
+        </article>
+        <article class="metric">
+          <span>In production</span>
+          <strong id="productionCount">0</strong>
+          <small>Mass production and QC stages.</small>
+        </article>
+      </section>
+
+      <div class="workbench">
+        <div class="grid">
+          <section class="section" id="orders">
+            <div class="section-header">
+              <div>
+                <h2>Order Series</h2>
+                <p>Existing and new RAPIDX orders with auto order code, supplier, amount, payment stage and ETA.</p>
+              </div>
+              <div class="tabs" role="tablist" aria-label="Order filters">
+                <button class="btn tab active" data-order-filter="all" type="button">All</button>
+                <button class="btn tab" data-order-filter="production" type="button">Production</button>
+                <button class="btn tab" data-order-filter="pending" type="button">Pending</button>
+                <button class="btn tab" data-order-filter="done" type="button">Completed</button>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Order</th>
+                      <th>Product</th>
+                      <th>Supplier</th>
+                      <th>Qty</th>
+                      <th>Value</th>
+                      <th>Payment</th>
+                      <th>Status</th>
+                      <th>ETA</th>
+                    </tr>
+                  </thead>
+                  <tbody id="ordersTable"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <section class="section" id="passbook">
+            <div class="section-header">
+              <div>
+                <h2>Payment Passbook</h2>
+                <p>Record lump sum payments received from RAPIDX and payments made to factories or logistics.</p>
+              </div>
+              <span class="pill green" id="passbookBadge">Balanced</span>
+            </div>
+            <div class="panel-body">
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Type</th>
+                      <th>Against</th>
+                      <th>Description</th>
+                      <th>In</th>
+                      <th>Out</th>
+                      <th>Balance</th>
+                    </tr>
+                  </thead>
+                  <tbody id="paymentsTable"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <section class="section" id="production">
+            <div class="section-header">
+              <div>
+                <h2>Production Status</h2>
+                <p>Quick view of sample approval, material readiness, mass production, QC, packing and shipment stage.</p>
+              </div>
+              <span class="pill teal" id="avgProgress">0% average</span>
+            </div>
+            <div class="panel-body">
+              <div class="status-list" id="statusList"></div>
+            </div>
+          </section>
+        </div>
+
+        <aside class="grid">
+          <section class="section" id="add-record">
+            <div class="section-header">
+              <div>
+                <h2>Add Record</h2>
+                <p>New entries are saved in this browser instantly.</p>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="form-tabs" role="tablist" aria-label="Add record type">
+                <button class="active" data-form-tab="order" type="button">Order</button>
+                <button data-form-tab="payment" type="button">Payment</button>
+                <button data-form-tab="status" type="button">Status</button>
+              </div>
+
+              <form class="form active" id="orderForm">
+                <div class="field">
+                  <label for="productName">Product name</label>
+                  <input id="productName" name="productName" placeholder="LED TV 43 inch Android" required />
+                </div>
+                <div class="split">
+                  <div class="field">
+                    <label for="clientModel">Client model</label>
+                    <input id="clientModel" name="clientModel" placeholder="RDX-43A" required />
+                  </div>
+                  <div class="field">
+                    <label for="supplierName">Supplier</label>
+                    <input id="supplierName" name="supplierName" placeholder="Factory name" required />
+                  </div>
+                </div>
+                <div class="split">
+                  <div class="field">
+                    <label for="orderQty">Quantity</label>
+                    <input id="orderQty" name="orderQty" type="number" min="1" value="100" required />
+                  </div>
+                  <div class="field">
+                    <label for="unitPrice">Unit price USD</label>
+                    <input id="unitPrice" name="unitPrice" type="number" min="0" step="0.01" value="0" required />
+                  </div>
+                </div>
+                <div class="split">
+                  <div class="field">
+                    <label for="orderStage">Order status</label>
+                    <select id="orderStage" name="orderStage">
+                      <option>New booking</option>
+                      <option>Advance pending</option>
+                      <option>Mass production</option>
+                      <option>QC waiting</option>
+                      <option>Packing</option>
+                      <option>Ready to ship</option>
+                      <option>Completed</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="paymentStage">Payment stage</label>
+                    <select id="paymentStage" name="paymentStage">
+                      <option>Advance pending</option>
+                      <option>Advance received</option>
+                      <option>Balance pending</option>
+                      <option>Paid in full</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="orderEta">ETA or target date</label>
+                  <input id="orderEta" name="orderEta" type="date" required />
+                </div>
+                <div class="form-actions">
+                  <button class="btn primary" type="submit">Add Order</button>
+                  <button class="btn ghost" type="reset">Clear</button>
+                </div>
+              </form>
+
+              <form class="form" id="paymentForm">
+                <div class="split">
+                  <div class="field">
+                    <label for="paymentDate">Date</label>
+                    <input id="paymentDate" name="paymentDate" type="date" required />
+                  </div>
+                  <div class="field">
+                    <label for="paymentType">Type</label>
+                    <select id="paymentType" name="paymentType">
+                      <option value="in">Received from RAPIDX</option>
+                      <option value="out">Paid to supplier</option>
+                      <option value="out">Paid to logistics</option>
+                      <option value="out">Other debit</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="paymentAgainst">Against order</label>
+                  <select id="paymentAgainst" name="paymentAgainst"></select>
+                </div>
+                <div class="field">
+                  <label for="paymentDesc">Description</label>
+                  <input id="paymentDesc" name="paymentDesc" placeholder="Lump sum received / factory advance / balance" required />
+                </div>
+                <div class="field">
+                  <label for="paymentAmount">Amount USD</label>
+                  <input id="paymentAmount" name="paymentAmount" type="number" min="0" step="0.01" required />
+                </div>
+                <div class="form-actions">
+                  <button class="btn primary" type="submit">Add Payment</button>
+                  <button class="btn ghost" type="reset">Clear</button>
+                </div>
+              </form>
+
+              <form class="form" id="statusForm">
+                <div class="field">
+                  <label for="statusOrder">Order</label>
+                  <select id="statusOrder" name="statusOrder"></select>
+                </div>
+                <div class="split">
+                  <div class="field">
+                    <label for="statusStage">Stage</label>
+                    <select id="statusStage" name="statusStage">
+                      <option>Sample approval</option>
+                      <option>Material ready</option>
+                      <option>Mass production</option>
+                      <option>QC waiting</option>
+                      <option>Packing</option>
+                      <option>Ready to ship</option>
+                      <option>Completed</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="statusProgress">Progress %</label>
+                    <input id="statusProgress" name="statusProgress" type="number" min="0" max="100" value="50" required />
+                  </div>
+                </div>
+                <div class="field">
+                  <label for="statusNote">Latest update</label>
+                  <textarea id="statusNote" name="statusNote" placeholder="Mass production started. Need QC booking before packing." required></textarea>
+                </div>
+                <div class="form-actions">
+                  <button class="btn primary" type="submit">Update Status</button>
+                  <button class="btn ghost" type="reset">Clear</button>
+                </div>
+              </form>
+            </div>
+          </section>
+
+          <section class="section">
+            <div class="section-header">
+              <div>
+                <h2>Latest Activity</h2>
+                <p>Last status notes across all RAPIDX orders.</p>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="timeline" id="timeline"></div>
+            </div>
+          </section>
+
+          <section class="section">
+            <div class="section-header">
+              <div>
+                <h2>Panel Tools</h2>
+                <p>Use these when sharing or starting fresh.</p>
+              </div>
+            </div>
+            <div class="panel-body grid">
+              <button class="btn dark" id="loadSampleBtn" type="button">Reload Sample Data</button>
+              <button class="btn" id="resetBtn" type="button">Clear All Records</button>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const storageKey = "rapidx-panel-v1";
+    const today = new Date().toISOString().slice(0, 10);
+
+    const sampleData = {
+      orders: [
+        {
+          code: "RPDX-2026-001",
+          product: "43 inch Android LED TV",
+          model: "RDX-43A",
+          supplier: "Shenzhen Vision Display",
+          qty: 500,
+          unitPrice: 84,
+          payment: "Balance pending",
+          status: "Mass production",
+          eta: "2026-08-28"
+        },
+        {
+          code: "RPDX-2026-002",
+          product: "RAPIDX Party Speaker",
+          model: "RDX-210",
+          supplier: "Guangzhou Audio Works",
+          qty: 320,
+          unitPrice: 86.5,
+          payment: "Advance received",
+          status: "QC waiting",
+          eta: "2026-08-22"
+        },
+        {
+          code: "RPDX-2026-003",
+          product: "500W Mixer Grinder",
+          model: "RDX-MG500",
+          supplier: "Ningbo Home Appliance",
+          qty: 1200,
+          unitPrice: 13.2,
+          payment: "Advance pending",
+          status: "New booking",
+          eta: "2026-09-05"
+        }
+      ],
+      payments: [
+        {
+          date: "2026-08-01",
+          type: "in",
+          against: "General",
+          desc: "Lump sum received from RAPIDX",
+          amount: 50000
+        },
+        {
+          date: "2026-08-02",
+          type: "out",
+          against: "RPDX-2026-001",
+          desc: "Factory advance paid for LED TV order",
+          amount: 12600
+        },
+        {
+          date: "2026-08-03",
+          type: "out",
+          against: "RPDX-2026-002",
+          desc: "Speaker sample and production advance",
+          amount: 8304
+        },
+        {
+          date: "2026-08-05",
+          type: "in",
+          against: "RPDX-2026-003",
+          desc: "Additional advance received against mixer grinder",
+          amount: 6000
+        }
+      ],
+      statuses: [
+        {
+          order: "RPDX-2026-001",
+          stage: "Mass production",
+          progress: 62,
+          note: "Panel material ready. Assembly line running. QC schedule required before 20 Aug.",
+          date: "2026-08-06"
+        },
+        {
+          order: "RPDX-2026-002",
+          stage: "QC waiting",
+          progress: 76,
+          note: "Cabinet finishing completed. Sound test and carton drop test pending.",
+          date: "2026-08-06"
+        },
+        {
+          order: "RPDX-2026-003",
+          stage: "Sample approval",
+          progress: 18,
+          note: "Waiting for client confirmation on packing artwork and plug type.",
+          date: "2026-08-05"
+        }
+      ]
+    };
+
+    let data = loadData();
+    let activeOrderFilter = "all";
+
+    const money = new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 0
+    });
+
+    const el = (selector) => document.querySelector(selector);
+    const els = (selector) => [...document.querySelectorAll(selector)];
+
+    function loadData() {
+      const saved = localStorage.getItem(storageKey);
+      if (!saved) return structuredClone(sampleData);
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return structuredClone(sampleData);
+      }
+    }
+
+    function saveData(message) {
+      localStorage.setItem(storageKey, JSON.stringify(data));
+      render();
+      if (message) showToast(message);
+    }
+
+    function nextCode() {
+      const year = new Date().getFullYear();
+      const nums = data.orders
+        .map((order) => Number(String(order.code).split("-").pop()))
+        .filter((num) => Number.isFinite(num));
+      const next = String((nums.length ? Math.max(...nums) : 0) + 1).padStart(3, "0");
+      return `RPDX-${year}-${next}`;
+    }
+
+    function orderTotal(order) {
+      return Number(order.qty || 0) * Number(order.unitPrice || 0);
+    }
+
+    function statusClass(text) {
+      const value = String(text).toLowerCase();
+      if (value.includes("complete") || value.includes("paid")) return "green";
+      if (value.includes("production") || value.includes("ready")) return "teal";
+      if (value.includes("pending") || value.includes("waiting")) return "amber";
+      return "red";
+    }
+
+    function filteredOrders() {
+      if (activeOrderFilter === "all") return data.orders;
+      return data.orders.filter((order) => {
+        const status = String(order.status).toLowerCase();
+        if (activeOrderFilter === "production") return status.includes("production") || status.includes("qc") || status.includes("packing");
+        if (activeOrderFilter === "pending") return status.includes("pending") || status.includes("new") || String(order.payment).toLowerCase().includes("pending");
+        if (activeOrderFilter === "done") return status.includes("complete");
+        return true;
+      });
+    }
+
+    function renderOrders() {
+      const rows = filteredOrders().map((order) => `
+        <tr>
+          <td><strong>${order.code}</strong><small>${order.model}</small></td>
+          <td><strong>${order.product}</strong><small>${order.payment}</small></td>
+          <td>${order.supplier}</td>
+          <td class="money">${Number(order.qty).toLocaleString("en-US")}</td>
+          <td class="money">${money.format(orderTotal(order))}</td>
+          <td><span class="pill ${statusClass(order.payment)}">${order.payment}</span></td>
+          <td><span class="pill ${statusClass(order.status)}">${order.status}</span></td>
+          <td>${order.eta || "-"}</td>
+        </tr>
+      `).join("");
+
+      el("#ordersTable").innerHTML = rows || `<tr><td colspan="8"><div class="empty">No orders in this filter.</div></td></tr>`;
+    }
+
+    function renderPayments() {
+      let balance = 0;
+      const payments = [...data.payments].sort((a, b) => a.date.localeCompare(b.date));
+      const rows = payments.map((payment) => {
+        const amount = Number(payment.amount || 0);
+        balance += payment.type === "in" ? amount : -amount;
+        return `
+          <tr>
+            <td>${payment.date}</td>
+            <td><span class="pill ${payment.type === "in" ? "green" : "red"}">${payment.type === "in" ? "Credit" : "Debit"}</span></td>
+            <td>${payment.against}</td>
+            <td>${payment.desc}</td>
+            <td class="money">${payment.type === "in" ? money.format(amount) : "-"}</td>
+            <td class="money">${payment.type === "out" ? money.format(amount) : "-"}</td>
+            <td class="money"><strong>${money.format(balance)}</strong></td>
+          </tr>
+        `;
+      }).join("");
+
+      el("#paymentsTable").innerHTML = rows || `<tr><td colspan="7"><div class="empty">No payment entries yet.</div></td></tr>`;
+      el("#passbookBadge").textContent = balance >= 0 ? "Client balance positive" : "Debit balance";
+      el("#passbookBadge").className = `pill ${balance >= 0 ? "green" : "red"}`;
+    }
+
+    function renderStatuses() {
+      const latestByOrder = new Map();
+      data.statuses.forEach((status) => latestByOrder.set(status.order, status));
+
+      const rows = data.orders.map((order) => {
+        const status = latestByOrder.get(order.code) || {
+          order: order.code,
+          stage: order.status,
+          progress: order.status === "Completed" ? 100 : 10,
+          note: "No status note added yet.",
+          date: "-"
+        };
+
+        return `
+          <article class="status-item">
+            <div class="status-top">
+              <div>
+                <strong>${order.code} - ${order.product}</strong>
+                <small>${status.note}</small>
+              </div>
+              <span class="pill ${statusClass(status.stage)}">${status.stage}</span>
+            </div>
+            <div class="progress" aria-label="${status.progress}% complete">
+              <span style="--value: ${Number(status.progress)}%"></span>
+            </div>
+            <small style="display:block;margin-top:8px;color:var(--muted);">${status.progress}% complete, updated ${status.date}</small>
+          </article>
+        `;
+      }).join("");
+
+      el("#statusList").innerHTML = rows || `<div class="empty">No production status available.</div>`;
+    }
+
+    function renderTimeline() {
+      const rows = [...data.statuses]
+        .sort((a, b) => b.date.localeCompare(a.date))
+        .slice(0, 6)
+        .map((item) => `
+          <div class="timeline-row">
+            <time>${item.date}</time>
+            <div>
+              <strong>${item.order} - ${item.stage}</strong>
+              <p>${item.note}</p>
+            </div>
+          </div>
+        `).join("");
+
+      el("#timeline").innerHTML = rows || `<div class="empty">No activity yet.</div>`;
+    }
+
+    function renderMetrics() {
+      const totalValue = data.orders.reduce((sum, order) => sum + orderTotal(order), 0);
+      const balance = data.payments.reduce((sum, payment) => {
+        const amount = Number(payment.amount || 0);
+        return sum + (payment.type === "in" ? amount : -amount);
+      }, 0);
+      const active = data.orders.filter((order) => !String(order.status).toLowerCase().includes("complete")).length;
+      const production = data.orders.filter((order) => /production|qc|packing|ready/i.test(order.status)).length;
+      const avg = data.statuses.length
+        ? Math.round(data.statuses.reduce((sum, item) => sum + Number(item.progress || 0), 0) / data.statuses.length)
+        : 0;
+
+      el("#totalValue").textContent = money.format(totalValue);
+      el("#clientBalance").textContent = money.format(balance);
+      el("#activeOrders").textContent = active;
+      el("#productionCount").textContent = production;
+      el("#avgProgress").textContent = `${avg}% average`;
+      el("#nextOrderCode").textContent = nextCode();
+    }
+
+    function renderOrderSelects() {
+      const options = [
+        `<option value="General">General</option>`,
+        ...data.orders.map((order) => `<option value="${order.code}">${order.code} - ${order.model}</option>`)
+      ].join("");
+      el("#paymentAgainst").innerHTML = options;
+      el("#statusOrder").innerHTML = data.orders.map((order) => `<option value="${order.code}">${order.code} - ${order.model}</option>`).join("");
+    }
+
+    function render() {
+      renderMetrics();
+      renderOrders();
+      renderPayments();
+      renderStatuses();
+      renderTimeline();
+      renderOrderSelects();
+    }
+
+    function showToast(message) {
+      const toast = el("#toast");
+      toast.textContent = message;
+      toast.classList.add("show");
+      window.clearTimeout(showToast.timer);
+      showToast.timer = window.setTimeout(() => toast.classList.remove("show"), 2600);
+    }
+
+    function downloadFile(filename, text, type) {
+      const blob = new Blob([text], { type });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function exportCsv() {
+      const orderRows = [
+        ["Order Code", "Product", "Model", "Supplier", "Qty", "Unit Price", "Total", "Payment", "Status", "ETA"],
+        ...data.orders.map((order) => [
+          order.code,
+          order.product,
+          order.model,
+          order.supplier,
+          order.qty,
+          order.unitPrice,
+          orderTotal(order),
+          order.payment,
+          order.status,
+          order.eta
+        ])
+      ];
+      const paymentRows = [
+        [],
+        ["Payment Date", "Type", "Against", "Description", "Amount"],
+        ...data.payments.map((payment) => [payment.date, payment.type, payment.against, payment.desc, payment.amount])
+      ];
+      const csv = [...orderRows, ...paymentRows]
+        .map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"', '""')}"`).join(","))
+        .join("\n");
+      downloadFile("rapidx-panel-export.csv", csv, "text/csv");
+    }
+
+    function addOrder(event) {
+      event.preventDefault();
+      const form = new FormData(event.currentTarget);
+      data.orders.push({
+        code: nextCode(),
+        product: form.get("productName").trim(),
+        model: form.get("clientModel").trim(),
+        supplier: form.get("supplierName").trim(),
+        qty: Number(form.get("orderQty")),
+        unitPrice: Number(form.get("unitPrice")),
+        payment: form.get("paymentStage"),
+        status: form.get("orderStage"),
+        eta: form.get("orderEta")
+      });
+      event.currentTarget.reset();
+      saveData("New RAPIDX order added.");
+    }
+
+    function addPayment(event) {
+      event.preventDefault();
+      const form = new FormData(event.currentTarget);
+      data.payments.push({
+        date: form.get("paymentDate"),
+        type: form.get("paymentType"),
+        against: form.get("paymentAgainst"),
+        desc: form.get("paymentDesc").trim(),
+        amount: Number(form.get("paymentAmount"))
+      });
+      event.currentTarget.reset();
+      el("#paymentDate").value = today;
+      saveData("Payment passbook updated.");
+    }
+
+    function updateStatus(event) {
+      event.preventDefault();
+      const form = new FormData(event.currentTarget);
+      const orderCode = form.get("statusOrder");
+      const stage = form.get("statusStage");
+      data.statuses.push({
+        order: orderCode,
+        stage,
+        progress: Number(form.get("statusProgress")),
+        note: form.get("statusNote").trim(),
+        date: today
+      });
+      const order = data.orders.find((item) => item.code === orderCode);
+      if (order) order.status = stage;
+      event.currentTarget.reset();
+      saveData("Production status updated.");
+    }
+
+    function setupEvents() {
+      els("[data-order-filter]").forEach((button) => {
+        button.addEventListener("click", () => {
+          activeOrderFilter = button.dataset.orderFilter;
+          els("[data-order-filter]").forEach((tab) => tab.classList.remove("active"));
+          button.classList.add("active");
+          renderOrders();
+        });
+      });
+
+      els("[data-form-tab]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const tab = button.dataset.formTab;
+          els("[data-form-tab]").forEach((item) => item.classList.remove("active"));
+          els(".form").forEach((form) => form.classList.remove("active"));
+          button.classList.add("active");
+          el(`#${tab}Form`).classList.add("active");
+        });
+      });
+
+      el("#orderForm").addEventListener("submit", addOrder);
+      el("#paymentForm").addEventListener("submit", addPayment);
+      el("#statusForm").addEventListener("submit", updateStatus);
+
+      el("#exportJsonBtn").addEventListener("click", () => {
+        downloadFile("rapidx-panel-data.json", JSON.stringify(data, null, 2), "application/json");
+      });
+      el("#exportCsvBtn").addEventListener("click", exportCsv);
+      el("#printBtn").addEventListener("click", () => window.print());
+
+      el("#loadSampleBtn").addEventListener("click", () => {
+        if (!confirm("Reload sample data and replace current records?")) return;
+        data = structuredClone(sampleData);
+        saveData("Sample RAPIDX records reloaded.");
+      });
+
+      el("#resetBtn").addEventListener("click", () => {
+        if (!confirm("Clear all RAPIDX records from this browser?")) return;
+        data = { orders: [], payments: [], statuses: [] };
+        saveData("All local records cleared.");
+      });
+    }
+
+    function initDates() {
+      el("#orderEta").value = today;
+      el("#paymentDate").value = today;
+    }
+
+    setupEvents();
+    initDates();
+    render();
+  </script>
+</body>
+</html>
