@@ -932,11 +932,6 @@
       </nav>
 
       <div class="sidebar-panel">
-        <p>Next order number</p>
-        <strong id="nextOrderCode">RB-RPX501</strong>
-      </div>
-
-      <div class="sidebar-panel">
         <p>Data status</p>
         <strong id="dataModeLabel">Browser local</strong>
         <p id="dataModeNote" style="margin-top: 8px;">Connect Firebase to sync records across devices.</p>
@@ -1018,7 +1013,7 @@
           <div class="section-header">
             <div>
               <h2>Orders</h2>
-              <p>Every RapidFX order with series number, supplier, value, payment stage, ETA, edit, and delete controls.</p>
+              <p>Every RapidFX order with manual order number, supplier, value, payment stage, ETA, edit, and delete controls.</p>
             </div>
             <div class="actions">
               <button class="btn" id="ordersExcelBtn" type="button">Export & Download Excel</button>
@@ -1033,7 +1028,6 @@
                     <th>Order</th>
                     <th>Product</th>
                     <th>Supplier</th>
-                    <th>Qty</th>
                     <th>Value</th>
                     <th>Payment</th>
                     <th>Status</th>
@@ -1118,15 +1112,13 @@
             </div>
 
             <form class="form active" id="orderForm">
+              <div class="field"><label for="orderCode">Order number</label><input id="orderCode" name="orderCode" placeholder="RB-RPX501" required /></div>
               <div class="field"><label for="productName">Product name</label><input id="productName" name="productName" placeholder="LED TV 43 inch Android" required /></div>
               <div class="split">
-                <div class="field"><label for="clientModel">Client model</label><input id="clientModel" name="clientModel" placeholder="RFX-43A" required /></div>
+                <div class="field"><label for="clientModel">Client model (optional)</label><input id="clientModel" name="clientModel" placeholder="RFX-43A" /></div>
                 <div class="field"><label for="supplierName">Supplier</label><input id="supplierName" name="supplierName" placeholder="Factory name" required /></div>
               </div>
-              <div class="split">
-                <div class="field"><label for="orderQty">Quantity</label><input id="orderQty" name="orderQty" type="number" min="1" value="100" required /></div>
-                <div class="field"><label for="unitPrice">Unit price USD</label><input id="unitPrice" name="unitPrice" type="number" min="0" step="0.01" value="0" required /></div>
-              </div>
+              <div class="field"><label for="orderValue">Order value USD</label><input id="orderValue" name="orderValue" type="number" min="0" step="0.01" value="0" required /></div>
               <div class="split">
                 <div class="field">
                   <label for="orderStage">Order status</label>
@@ -1225,9 +1217,9 @@
 
     var sampleData = {
       orders: [
-        { code: "RB-RPX501", product: "43 inch Android LED TV", model: "RFX-43A", supplier: "Shenzhen Vision Display", qty: 500, unitPrice: 84, payment: "Balance pending", status: "Mass production", eta: "2026-08-28" },
-        { code: "RB-RPX502", product: "RapidFX Party Speaker", model: "RFX-210", supplier: "Guangzhou Audio Works", qty: 320, unitPrice: 86.5, payment: "Advance received", status: "QC waiting", eta: "2026-08-22" },
-        { code: "RB-RPX503", product: "500W Mixer Grinder", model: "RFX-MG500", supplier: "Ningbo Home Appliance", qty: 1200, unitPrice: 13.2, payment: "Advance pending", status: "New booking", eta: "2026-09-05" }
+        { code: "RB-RPX501", product: "43 inch Android LED TV", model: "RFX-43A", supplier: "Shenzhen Vision Display", value: 42000, payment: "Balance pending", status: "Mass production", eta: "2026-08-28" },
+        { code: "RB-RPX502", product: "RapidFX Party Speaker", model: "RFX-210", supplier: "Guangzhou Audio Works", value: 27680, payment: "Advance received", status: "QC waiting", eta: "2026-08-22" },
+        { code: "RB-RPX503", product: "500W Mixer Grinder", model: "RFX-MG500", supplier: "Ningbo Home Appliance", value: 15840, payment: "Advance pending", status: "New booking", eta: "2026-09-05" }
       ],
       payments: [
         { id: "pay-1", date: "2026-08-01", type: "in", against: "General", desc: "Lump sum received from RapidFX", amount: 50000 },
@@ -1267,6 +1259,12 @@
       safe.orders = Array.isArray(safe.orders) ? safe.orders : [];
       safe.payments = Array.isArray(safe.payments) ? safe.payments : [];
       safe.statuses = Array.isArray(safe.statuses) ? safe.statuses : [];
+      safe.orders.forEach(function(order) {
+        if (order.value == null || order.value === "") {
+          order.value = Number(order.qty || 0) * Number(order.unitPrice || 0);
+        }
+        order.model = order.model || "";
+      });
       safe.payments.forEach(function(item) { if (!item.id) item.id = uid("pay"); });
       safe.statuses.forEach(function(item) { if (!item.id) item.id = uid("st"); });
       return safe;
@@ -1505,15 +1503,11 @@
       }
     }
 
-    function nextCode() {
-      var nums = data.orders.map(function(order) {
-        var match = String(order.code || "").match(/RB-RPX(\d+)$/i);
-        return match ? Number(match[1]) : NaN;
-      }).filter(function(num) { return Number.isFinite(num) && num >= 501; });
-      return "RB-RPX" + String(nums.length ? Math.max.apply(null, nums) + 1 : 501);
+    function orderTotal(order) {
+      var directValue = Number(order.value);
+      if (Number.isFinite(directValue)) return directValue;
+      return Number(order.qty || 0) * Number(order.unitPrice || 0);
     }
-
-    function orderTotal(order) { return Number(order.qty || 0) * Number(order.unitPrice || 0); }
     function statusClass(text) {
       var value = String(text || "").toLowerCase();
       if (value.indexOf("complete") >= 0 || value.indexOf("paid") >= 0) return "green";
@@ -1583,7 +1577,6 @@
       el("#paidTotal").textContent = money.format(t.paid);
       el("#productionCount").textContent = t.production;
       el("#nextEta").textContent = t.nextEta;
-      el("#nextOrderCode").textContent = nextCode();
       el("#homeCount").textContent = data.orders.length + data.payments.length + data.statuses.length;
       el("#ordersCount").textContent = data.orders.length;
       el("#paymentsCount").textContent = data.payments.length;
@@ -1592,11 +1585,11 @@
 
     function renderOrders() {
       var rows = data.orders.map(function(order) {
+        var modelText = order.model ? "<small>" + escapeHtml(order.model) + "</small>" : "";
         return "<tr>" +
-          "<td><strong>" + escapeHtml(order.code) + "</strong><small>" + escapeHtml(order.model) + "</small></td>" +
+          "<td><strong>" + escapeHtml(order.code) + "</strong>" + modelText + "</td>" +
           "<td><strong>" + escapeHtml(order.product) + "</strong><small>" + escapeHtml(order.payment) + "</small></td>" +
           "<td>" + escapeHtml(order.supplier) + "</td>" +
-          "<td class='money'>" + Number(order.qty || 0).toLocaleString("en-US") + "</td>" +
           "<td class='money'>" + money.format(orderTotal(order)) + "</td>" +
           "<td><span class='pill " + statusClass(order.payment) + "'>" + escapeHtml(order.payment) + "</span></td>" +
           "<td><span class='pill " + statusClass(order.status) + "'>" + escapeHtml(order.status) + "</span></td>" +
@@ -1604,7 +1597,7 @@
           "<td><div class='row-actions'><button class='btn small' type='button' onclick='editOrder(&quot;" + escapeHtml(order.code) + "&quot;)'>Edit</button><button class='btn small danger' type='button' onclick='deleteOrder(&quot;" + escapeHtml(order.code) + "&quot;)'>Delete</button></div></td>" +
         "</tr>";
       }).join("");
-      el("#ordersTable").innerHTML = rows || "<tr><td colspan='9'><div class='empty'>No orders yet. Add your first RapidFX order.</div></td></tr>";
+      el("#ordersTable").innerHTML = rows || "<tr><td colspan='8'><div class='empty'>No orders yet. Add your first RapidFX order.</div></td></tr>";
     }
 
     function renderPayments() {
@@ -1665,9 +1658,31 @@
       }).join("") || "<div class='empty'>No activity yet.</div>";
     }
 
+    function orderSequenceNumber(order) {
+      var match = String(order.code || "").match(/(\d+)(?!.*\d)/);
+      return match ? Number(match[1]) : -1;
+    }
+
+    function orderLabel(order) {
+      var detail = order.model || order.product || "";
+      return order.code + (detail ? " - " + detail : "");
+    }
+
+    function latestOrders(limit) {
+      return data.orders.map(function(order, index) {
+        var time = Date.parse(order.updatedAt || order.createdAt || "");
+        return { order: order, index: index, seq: orderSequenceNumber(order), time: Number.isFinite(time) ? time : 0 };
+      }).sort(function(a, b) {
+        if (a.time !== b.time) return b.time - a.time;
+        if (a.seq !== b.seq) return b.seq - a.seq;
+        return b.index - a.index;
+      }).slice(0, limit).map(function(item) { return item.order; });
+    }
+
     function renderOrderSelects() {
-      var paymentOptions = ["<option value='General'>General</option>"].concat(data.orders.map(function(order) { return "<option value='" + escapeHtml(order.code) + "'>" + escapeHtml(order.code + " - " + order.model) + "</option>"; })).join("");
-      var statusOptions = data.orders.map(function(order) { return "<option value='" + escapeHtml(order.code) + "'>" + escapeHtml(order.code + " - " + order.model) + "</option>"; }).join("");
+      var paymentOrders = latestOrders(10);
+      var paymentOptions = ["<option value='General'>General</option>"].concat(paymentOrders.map(function(order) { return "<option value='" + escapeHtml(order.code) + "'>" + escapeHtml(orderLabel(order)) + "</option>"; })).join("");
+      var statusOptions = data.orders.map(function(order) { return "<option value='" + escapeHtml(order.code) + "'>" + escapeHtml(orderLabel(order)) + "</option>"; }).join("");
       el("#paymentAgainst").innerHTML = paymentOptions;
       el("#statusOrder").innerHTML = statusOptions || "<option value=''>Add an order first</option>";
     }
@@ -1686,25 +1701,51 @@
     async function addOrUpdateOrder(event) {
       event.preventDefault();
       var form = new FormData(event.currentTarget);
+      var orderCode = String(form.get("orderCode") || "").trim();
+      var orderValue = Number(form.get("orderValue"));
+      if (!orderCode) {
+        showToast("Add the order number.");
+        return;
+      }
+      if (!Number.isFinite(orderValue) || orderValue < 0) {
+        showToast("Add a valid order value.");
+        return;
+      }
+      var duplicate = data.orders.find(function(item) { return item.code === orderCode && item.code !== editState.order; });
+      if (duplicate) {
+        showToast("This order number already exists.");
+        return;
+      }
       var payload = {
+        code: orderCode,
         product: form.get("productName").trim(),
-        model: form.get("clientModel").trim(),
+        model: String(form.get("clientModel") || "").trim(),
         supplier: form.get("supplierName").trim(),
-        qty: Number(form.get("orderQty")),
-        unitPrice: Number(form.get("unitPrice")),
+        value: orderValue,
         payment: form.get("paymentStage"),
         status: form.get("orderStage"),
-        eta: form.get("orderEta")
+        eta: form.get("orderEta"),
+        updatedAt: new Date().toISOString()
       };
       var message = "New RapidFX order added.";
       if (editState.order) {
         var existing = data.orders.find(function(item) { return item.code === editState.order; });
-        if (existing) Object.assign(existing, payload);
+        if (existing) {
+          var oldCode = existing.code;
+          payload.createdAt = existing.createdAt || payload.updatedAt;
+          Object.assign(existing, payload);
+          delete existing.qty;
+          delete existing.unitPrice;
+          if (oldCode !== payload.code) {
+            data.statuses.forEach(function(status) { if (status.order === oldCode) status.order = payload.code; });
+            data.payments.forEach(function(payment) { if (payment.against === oldCode) payment.against = payload.code; });
+          }
+        }
         editState.order = null;
         message = "Order updated.";
       } else {
-        payload.code = nextCode();
-        data.orders.push(payload);
+        payload.createdAt = payload.updatedAt;
+        data.orders.unshift(payload);
       }
       event.currentTarget.reset();
       initDates();
@@ -1758,11 +1799,11 @@
       var order = data.orders.find(function(item) { return item.code === code; });
       if (!order) return;
       editState.order = code;
+      el("#orderCode").value = order.code || "";
       el("#productName").value = order.product || "";
       el("#clientModel").value = order.model || "";
       el("#supplierName").value = order.supplier || "";
-      el("#orderQty").value = order.qty || 0;
-      el("#unitPrice").value = order.unitPrice || 0;
+      el("#orderValue").value = orderTotal(order);
       el("#orderStage").value = order.status || "New booking";
       el("#paymentStage").value = order.payment || "Advance pending";
       el("#orderEta").value = order.eta || today;
@@ -1784,6 +1825,12 @@
       editState.payment = id;
       el("#paymentDate").value = item.date || today;
       el("#paymentType").value = item.type || "in";
+      if (item.against && !Array.prototype.some.call(el("#paymentAgainst").options, function(option) { return option.value === item.against; })) {
+        var option = document.createElement("option");
+        option.value = item.against;
+        option.textContent = item.against + " - saved on this entry";
+        el("#paymentAgainst").appendChild(option);
+      }
       el("#paymentAgainst").value = item.against || "General";
       el("#paymentDesc").value = item.desc || "";
       el("#paymentAmount").value = item.amount || 0;
@@ -1871,24 +1918,21 @@
     }
 
     function exportOrdersExcel() {
-      var totalQty = data.orders.reduce(function(sum, order) { return sum + Number(order.qty || 0); }, 0);
       var totalValue = data.orders.reduce(function(sum, order) { return sum + orderTotal(order); }, 0);
       var columns = [
         { label: "Order Code", width: 125 },
         { label: "Product", width: 230, wrap: true },
         { label: "Model", width: 105 },
         { label: "Supplier", width: 190, wrap: true },
-        { label: "Qty", width: 78, type: "number" },
-        { label: "Unit Price USD", width: 112, type: "money" },
-        { label: "Total USD", width: 120, type: "money" },
+        { label: "Order Value USD", width: 135, type: "money" },
         { label: "Payment", width: 145 },
         { label: "Status", width: 145 },
         { label: "ETA", width: 105, type: "date" }
       ];
       var rows = data.orders.map(function(order) {
-        return [order.code, order.product, order.model, order.supplier, Number(order.qty || 0), Number(order.unitPrice || 0), orderTotal(order), order.payment, order.status, order.eta];
+        return [order.code, order.product, order.model, order.supplier, orderTotal(order), order.payment, order.status, order.eta];
       });
-      exportExcelFile("rapidfx-orders.xls", "RapidFX Orders", columns, rows, [["", "", "", "Totals", totalQty, "", totalValue, "", "", ""]]);
+      exportExcelFile("rapidfx-orders.xls", "RapidFX Orders", columns, rows, [["", "", "", "Totals", totalValue, "", "", ""]]);
     }
 
     function exportPassbookExcel() {
