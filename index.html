@@ -591,6 +591,15 @@
     }
 
     .panel-body { padding: 17px; }
+    .filter-panel {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 14px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f8fafc;
+    }
     .table-wrap { overflow-x: auto; }
     table {
       width: 100%;
@@ -1018,11 +1027,49 @@
               <p>Every RapidFX order with manual order number, supplier, total value, advance value, payment stage, ETA, edit, and delete controls.</p>
             </div>
             <div class="actions">
+              <button class="btn" id="ordersFilterBtn" type="button">Filter</button>
               <button class="btn" id="ordersExcelBtn" type="button">Export & Download Excel</button>
               <button class="btn primary" type="button" data-add-shortcut="order">Add Order</button>
             </div>
           </div>
           <div class="panel-body">
+            <div class="filter-panel hidden" id="ordersFilterPanel">
+              <div class="split">
+                <div class="field">
+                  <label for="ordersSearch">Search orders</label>
+                  <input id="ordersSearch" type="search" placeholder="Order number, product, supplier" />
+                </div>
+                <div class="field">
+                  <label for="ordersPaymentFilter">Payment stage</label>
+                  <select id="ordersPaymentFilter">
+                    <option value="">All payment stages</option>
+                    <option>Advance pending</option>
+                    <option>Advance Sent to Supplier</option>
+                    <option>Balance pending</option>
+                    <option>Paid in full</option>
+                  </select>
+                </div>
+              </div>
+              <div class="split">
+                <div class="field">
+                  <label for="ordersStatusFilter">Order status</label>
+                  <select id="ordersStatusFilter">
+                    <option value="">All order statuses</option>
+                    <option>New booking</option>
+                    <option>Advance pending</option>
+                    <option>Mass production</option>
+                    <option>QC waiting</option>
+                    <option>Packing</option>
+                    <option>Ready to ship</option>
+                    <option>Completed</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="ordersClearFilterBtn">Clear</label>
+                  <button class="btn ghost" id="ordersClearFilterBtn" type="button">Clear Filter</button>
+                </div>
+              </div>
+            </div>
             <div class="table-wrap">
               <table>
                 <thead>
@@ -1208,6 +1255,7 @@
     var currentPage = "home";
     var currentForm = "order";
     var editState = { order: null, payment: null, status: null };
+    var ordersFilterOpen = false;
     var setupOpen = false;
     var firebaseState = {
       mods: null,
@@ -1601,7 +1649,9 @@
     }
 
     function renderOrders() {
-      var rows = data.orders.map(function(order) {
+      updateOrdersFilterPanel();
+      var orders = filteredOrders();
+      var rows = orders.map(function(order) {
         var modelText = order.model ? "<small>" + escapeHtml(order.model) + "</small>" : "";
         return "<tr>" +
           "<td><strong>" + escapeHtml(order.code) + "</strong>" + modelText + "</td>" +
@@ -1615,7 +1665,8 @@
           "<td><div class='row-actions'><button class='btn small' type='button' onclick='editOrder(&quot;" + escapeHtml(order.code) + "&quot;)'>Edit</button><button class='btn small danger' type='button' onclick='deleteOrder(&quot;" + escapeHtml(order.code) + "&quot;)'>Delete</button></div></td>" +
         "</tr>";
       }).join("");
-      el("#ordersTable").innerHTML = rows || "<tr><td colspan='9'><div class='empty'>No orders yet. Add your first RapidFX order.</div></td></tr>";
+      var emptyText = data.orders.length ? "No orders match this filter." : "No orders yet. Add your first RapidFX order.";
+      el("#ordersTable").innerHTML = rows || "<tr><td colspan='9'><div class='empty'>" + emptyText + "</div></td></tr>";
     }
 
     function renderPayments() {
@@ -1679,6 +1730,41 @@
     function orderSequenceNumber(order) {
       var match = String(order.code || "").match(/(\d+)(?!.*\d)/);
       return match ? Number(match[1]) : -1;
+    }
+
+    function sortedOrders() {
+      return data.orders.map(function(order, index) {
+        return { order: order, index: index, seq: orderSequenceNumber(order) };
+      }).sort(function(a, b) {
+        if (a.seq !== b.seq) return b.seq - a.seq;
+        return b.index - a.index;
+      }).map(function(item) { return item.order; });
+    }
+
+    function orderFilterValues() {
+      return {
+        search: String(el("#ordersSearch") ? el("#ordersSearch").value : "").trim().toLowerCase(),
+        payment: el("#ordersPaymentFilter") ? el("#ordersPaymentFilter").value : "",
+        status: el("#ordersStatusFilter") ? el("#ordersStatusFilter").value : ""
+      };
+    }
+
+    function filteredOrders() {
+      var filters = orderFilterValues();
+      return sortedOrders().filter(function(order) {
+        var searchable = [order.code, order.product, order.model, order.supplier, order.payment, order.status, order.eta].join(" ").toLowerCase();
+        if (filters.search && searchable.indexOf(filters.search) < 0) return false;
+        if (filters.payment && order.payment !== filters.payment) return false;
+        if (filters.status && order.status !== filters.status) return false;
+        return true;
+      });
+    }
+
+    function updateOrdersFilterPanel() {
+      var panel = el("#ordersFilterPanel");
+      var button = el("#ordersFilterBtn");
+      if (panel) panel.classList.toggle("hidden", !ordersFilterOpen);
+      if (button) button.textContent = ordersFilterOpen ? "Hide Filter" : "Filter";
     }
 
     function orderLabel(order) {
@@ -1948,8 +2034,9 @@
     }
 
     function exportOrdersExcel() {
-      var totalValue = data.orders.reduce(function(sum, order) { return sum + orderTotal(order); }, 0);
-      var totalAdvance = data.orders.reduce(function(sum, order) { return sum + orderAdvance(order); }, 0);
+      var orders = filteredOrders();
+      var totalValue = orders.reduce(function(sum, order) { return sum + orderTotal(order); }, 0);
+      var totalAdvance = orders.reduce(function(sum, order) { return sum + orderAdvance(order); }, 0);
       var columns = [
         { label: "Order Code", width: 125 },
         { label: "Product", width: 230, wrap: true },
@@ -1961,7 +2048,7 @@
         { label: "Status", width: 145 },
         { label: "ETA", width: 105, type: "date" }
       ];
-      var rows = data.orders.map(function(order) {
+      var rows = orders.map(function(order) {
         return [order.code, order.product, order.model, order.supplier, orderTotal(order), orderAdvance(order), order.payment, order.status, order.eta];
       });
       exportExcelFile("rapidfx-orders.xls", "RapidFX Orders", columns, rows, [["", "", "", "Totals", totalValue, totalAdvance, "", "", ""]]);
@@ -2145,6 +2232,20 @@
       el("#clearConfigBtn").addEventListener("click", clearFirebaseConfig);
       el("#logoutBtn").addEventListener("click", logoutFirebase);
       el("#cancelEditBtn").addEventListener("click", cancelEdit);
+      el("#ordersFilterBtn").addEventListener("click", function() {
+        ordersFilterOpen = !ordersFilterOpen;
+        updateOrdersFilterPanel();
+      });
+      ["#ordersSearch", "#ordersPaymentFilter", "#ordersStatusFilter"].forEach(function(selector) {
+        el(selector).addEventListener("input", renderOrders);
+        el(selector).addEventListener("change", renderOrders);
+      });
+      el("#ordersClearFilterBtn").addEventListener("click", function() {
+        el("#ordersSearch").value = "";
+        el("#ordersPaymentFilter").value = "";
+        el("#ordersStatusFilter").value = "";
+        renderOrders();
+      });
       el("#ordersExcelBtn").addEventListener("click", exportOrdersExcel);
       el("#passbookExcelBtn").addEventListener("click", exportPassbookExcel);
       el("#printBtn").addEventListener("click", function() { window.print(); });
