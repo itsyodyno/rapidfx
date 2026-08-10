@@ -603,7 +603,7 @@
     .table-wrap { overflow-x: auto; }
     table {
       width: 100%;
-      min-width: 1040px;
+      min-width: 1180px;
       border-collapse: collapse;
       font-size: 13px;
     }
@@ -1024,7 +1024,7 @@
           <div class="section-header">
             <div>
               <h2>Orders</h2>
-              <p>Every RapidFX order with manual order number, supplier, total value, advance value, payment stage, ETA, edit, and delete controls.</p>
+              <p>Every RapidFX order with manual order number, supplier, total order value, advance paid, balance payment, payment stage, ETA, edit, and delete controls.</p>
             </div>
             <div class="actions">
               <button class="btn" id="ordersFilterBtn" type="button">Filter</button>
@@ -1046,7 +1046,7 @@
                     <option>Advance pending</option>
                     <option>Advance Sent to Supplier</option>
                     <option>Balance pending</option>
-                    <option>Paid in full</option>
+                    <option>Balance Payment Paid</option>
                   </select>
                 </div>
               </div>
@@ -1078,7 +1078,8 @@
                     <th>Product</th>
                     <th>Supplier</th>
                     <th>Total Order Value (USD)</th>
-                    <th>Advance Value (USD)</th>
+                    <th>Advance Paid USD</th>
+                    <th>Balance Payment USD</th>
                     <th>Payment</th>
                     <th>Status</th>
                     <th>ETA</th>
@@ -1170,7 +1171,7 @@
               </div>
               <div class="split">
                 <div class="field"><label for="orderTotalValue">Total Order Value (USD)</label><input id="orderTotalValue" name="orderTotalValue" type="number" min="0" step="0.01" value="0" required /></div>
-                <div class="field"><label for="orderAdvanceValue">Advance Value (USD)</label><input id="orderAdvanceValue" name="orderAdvanceValue" type="number" min="0" step="0.01" value="0" required /></div>
+                <div class="field"><label for="orderAdvanceValue">Advance Paid USD</label><input id="orderAdvanceValue" name="orderAdvanceValue" type="number" min="0" step="0.01" value="0" required /></div>
               </div>
               <div class="split">
                 <div class="field">
@@ -1182,7 +1183,7 @@
                 <div class="field">
                   <label for="paymentStage">Payment stage</label>
                   <select id="paymentStage" name="paymentStage">
-                    <option>Advance pending</option><option>Advance Sent to Supplier</option><option>Balance pending</option><option>Paid in full</option>
+                    <option>Advance pending</option><option>Advance Sent to Supplier</option><option>Balance pending</option><option>Balance Payment Paid</option>
                   </select>
                 </div>
               </div>
@@ -1573,6 +1574,16 @@
       var value = Number(order.advanceValue);
       return Number.isFinite(value) ? value : 0;
     }
+
+    function orderBalance(order) {
+      return orderTotal(order) - orderAdvance(order);
+    }
+
+    function paymentStageText(stage) {
+      var value = String(stage || "");
+      return value === "Paid in full" ? "Balance Payment Paid" : value;
+    }
+
     function statusClass(text) {
       var value = String(text || "").toLowerCase();
       if (value.indexOf("complete") >= 0 || value.indexOf("paid") >= 0) return "green";
@@ -1653,20 +1664,22 @@
       var orders = filteredOrders();
       var rows = orders.map(function(order) {
         var modelText = order.model ? "<small>" + escapeHtml(order.model) + "</small>" : "";
+        var paymentText = paymentStageText(order.payment);
         return "<tr>" +
           "<td><strong>" + escapeHtml(order.code) + "</strong>" + modelText + "</td>" +
-          "<td><strong>" + escapeHtml(order.product) + "</strong><small>" + escapeHtml(order.payment) + "</small></td>" +
+          "<td><strong>" + escapeHtml(order.product) + "</strong><small>" + escapeHtml(paymentText) + "</small></td>" +
           "<td>" + escapeHtml(order.supplier) + "</td>" +
           "<td class='money'>" + money.format(orderTotal(order)) + "</td>" +
           "<td class='money'>" + money.format(orderAdvance(order)) + "</td>" +
-          "<td><span class='pill " + statusClass(order.payment) + "'>" + escapeHtml(order.payment) + "</span></td>" +
+          "<td class='money'>" + money.format(orderBalance(order)) + "</td>" +
+          "<td><span class='pill " + statusClass(paymentText) + "'>" + escapeHtml(paymentText) + "</span></td>" +
           "<td><span class='pill " + statusClass(order.status) + "'>" + escapeHtml(order.status) + "</span></td>" +
           "<td>" + escapeHtml(order.eta || "-") + "</td>" +
           "<td><div class='row-actions'><button class='btn small' type='button' onclick='editOrder(&quot;" + escapeHtml(order.code) + "&quot;)'>Edit</button><button class='btn small danger' type='button' onclick='deleteOrder(&quot;" + escapeHtml(order.code) + "&quot;)'>Delete</button></div></td>" +
         "</tr>";
       }).join("");
       var emptyText = data.orders.length ? "No orders match this filter." : "No orders yet. Add your first RapidFX order.";
-      el("#ordersTable").innerHTML = rows || "<tr><td colspan='9'><div class='empty'>" + emptyText + "</div></td></tr>";
+      el("#ordersTable").innerHTML = rows || "<tr><td colspan='10'><div class='empty'>" + emptyText + "</div></td></tr>";
     }
 
     function renderPayments() {
@@ -1752,9 +1765,10 @@
     function filteredOrders() {
       var filters = orderFilterValues();
       return sortedOrders().filter(function(order) {
-        var searchable = [order.code, order.product, order.model, order.supplier, order.payment, order.status, order.eta].join(" ").toLowerCase();
+        var paymentText = paymentStageText(order.payment);
+        var searchable = [order.code, order.product, order.model, order.supplier, paymentText, order.status, order.eta].join(" ").toLowerCase();
         if (filters.search && searchable.indexOf(filters.search) < 0) return false;
-        if (filters.payment && order.payment !== filters.payment) return false;
+        if (filters.payment && paymentText !== filters.payment) return false;
         if (filters.status && order.status !== filters.status) return false;
         return true;
       });
@@ -1821,7 +1835,7 @@
         return;
       }
       if (advanceValue > totalValue) {
-        showToast("Advance value cannot be higher than total order value.");
+        showToast("Advance paid cannot be higher than total order value.");
         return;
       }
       var duplicate = data.orders.find(function(item) { return item.code === orderCode && item.code !== editState.order; });
@@ -1836,7 +1850,7 @@
         supplier: form.get("supplierName").trim(),
         totalValue: totalValue,
         advanceValue: advanceValue,
-        payment: form.get("paymentStage"),
+        payment: paymentStageText(form.get("paymentStage")),
         status: form.get("orderStage"),
         eta: form.get("orderEta"),
         updatedAt: new Date().toISOString()
@@ -1921,7 +1935,7 @@
       el("#orderTotalValue").value = orderTotal(order);
       el("#orderAdvanceValue").value = orderAdvance(order);
       el("#orderStage").value = order.status || "New booking";
-      el("#paymentStage").value = order.payment || "Advance pending";
+      el("#paymentStage").value = paymentStageText(order.payment || "Advance pending");
       el("#orderEta").value = order.eta || today;
       showPage("add");
       switchForm("order");
@@ -2037,21 +2051,23 @@
       var orders = filteredOrders();
       var totalValue = orders.reduce(function(sum, order) { return sum + orderTotal(order); }, 0);
       var totalAdvance = orders.reduce(function(sum, order) { return sum + orderAdvance(order); }, 0);
+      var totalBalance = orders.reduce(function(sum, order) { return sum + orderBalance(order); }, 0);
       var columns = [
         { label: "Order Code", width: 125 },
         { label: "Product", width: 230, wrap: true },
         { label: "Model", width: 105 },
         { label: "Supplier", width: 190, wrap: true },
         { label: "Total Order Value USD", width: 155, type: "money" },
-        { label: "Advance Value USD", width: 135, type: "money" },
+        { label: "Advance Paid USD", width: 135, type: "money" },
+        { label: "Balance Payment USD", width: 150, type: "money" },
         { label: "Payment", width: 145 },
         { label: "Status", width: 145 },
         { label: "ETA", width: 105, type: "date" }
       ];
       var rows = orders.map(function(order) {
-        return [order.code, order.product, order.model, order.supplier, orderTotal(order), orderAdvance(order), order.payment, order.status, order.eta];
+        return [order.code, order.product, order.model, order.supplier, orderTotal(order), orderAdvance(order), orderBalance(order), paymentStageText(order.payment), order.status, order.eta];
       });
-      exportExcelFile("rapidfx-orders.xls", "RapidFX Orders", columns, rows, [["", "", "", "Totals", totalValue, totalAdvance, "", "", ""]]);
+      exportExcelFile("rapidfx-orders.xls", "RapidFX Orders", columns, rows, [["", "", "", "Totals", totalValue, totalAdvance, totalBalance, "", "", ""]]);
     }
 
     function exportPassbookExcel() {
