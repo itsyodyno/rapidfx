@@ -2447,27 +2447,208 @@
       downloadFile(filename, html, "application/vnd.ms-excel");
     }
 
-    function exportOrdersExcel() {
-      var orders = filteredOrders();
-      var totalValue = orders.reduce(function(sum, order) { return sum + orderTotal(order); }, 0);
-      var totalAdvance = orders.reduce(function(sum, order) { return sum + orderAdvance(order); }, 0);
-      var totalBalance = orders.reduce(function(sum, order) { return sum + orderBalance(order); }, 0);
-      var columns = [
-        { label: "Order Code", width: 125 },
-        { label: "Product", width: 230, wrap: true },
-        { label: "Model", width: 105 },
-        { label: "Supplier", width: 190, wrap: true },
-        { label: "Total Order Value USD", width: 155, type: "money" },
-        { label: "Advance Paid USD", width: 135, type: "money" },
-        { label: "Balance Payment USD", width: 150, type: "money" },
-        { label: "Payment", width: 145 },
-        { label: "Status", width: 145 },
-        { label: "ETA", width: 105, type: "date" }
-      ];
-      var rows = orders.map(function(order) {
-        return [order.code, order.product, order.model, order.supplier, orderTotal(order), orderAdvance(order), orderBalance(order), paymentStageLabel(order.payment), order.status, order.eta];
-      });
-      exportExcelFile("rapidfx-orders.xls", "RapidFX Orders", columns, rows, [["", "", "", "Totals", totalValue, totalAdvance, totalBalance, "", "", ""]]);
+    async function exportOrdersExcel() {
+      showToast("Preparing professional Orders Excel file...");
+
+      try {
+        var ExcelJS = await loadExcelJs();
+        var workbook = new ExcelJS.Workbook();
+        var generated = new Date();
+        var worksheet = workbook.addWorksheet("Orders", {
+          properties: { defaultRowHeight: 21 },
+          views: [{ state: "frozen", ySplit: 5, showGridLines: false }],
+          pageSetup: {
+            paperSize: 9,
+            orientation: "landscape",
+            fitToPage: true,
+            fitToWidth: 1,
+            fitToHeight: 0,
+            horizontalCentered: true,
+            margins: { left: 0.25, right: 0.25, top: 0.45, bottom: 0.45, header: 0.2, footer: 0.2 }
+          }
+        });
+
+        workbook.creator = "Redberry RapidFX";
+        workbook.company = "Redberry";
+        workbook.subject = "RapidFX Orders";
+        workbook.title = "RapidFX Orders";
+        workbook.created = generated;
+        workbook.modified = generated;
+        workbook.calcProperties.fullCalcOnLoad = true;
+
+        var colors = {
+          charcoal: "FF23272D",
+          charcoalLight: "FF343941",
+          red: "FFAA1734",
+          gold: "FFD0A64A",
+          bodyText: "FF2E3339",
+          line: "FFD9DEE5",
+          rowEven: "FFF0F2F4",
+          rowOdd: "FFDADDE0",
+          advanceFill: "FFE7F5EC",
+          advanceText: "FF16713C",
+          balanceFill: "FFFFF1E3",
+          balanceText: "FF9A4D00",
+          paidFill: "FFE7F5EC",
+          paidText: "FF16713C",
+          totalFill: "FFE6E8EB",
+          white: "FFFFFFFF"
+        };
+
+        worksheet.columns = [
+          { key: "orderCode", width: 18 },
+          { key: "product", width: 32 },
+          { key: "model", width: 17 },
+          { key: "supplier", width: 29 },
+          { key: "totalValue", width: 23 },
+          { key: "advancePaid", width: 21 },
+          { key: "balancePayment", width: 23 },
+          { key: "payment", width: 24 },
+          { key: "status", width: 22 },
+          { key: "eta", width: 17 }
+        ];
+
+        worksheet.mergeCells("A1:J1");
+        worksheet.getCell("A1").value = "RapidFX Orders";
+        worksheet.getCell("A1").font = { name: "Aptos Display", size: 25, bold: true, color: { argb: colors.white } };
+        worksheet.getCell("A1").alignment = { vertical: "middle", horizontal: "left" };
+        worksheet.getRow(1).height = 42;
+        styleExcelCells(worksheet, 1, 1, 1, 10, { fill: { type: "pattern", pattern: "solid", fgColor: { argb: colors.charcoal } } });
+
+        worksheet.mergeCells("A2:F2");
+        worksheet.mergeCells("G2:J2");
+        worksheet.getCell("A2").value = "REDBERRY  |  RAPIDFX";
+        worksheet.getCell("A2").font = { name: "Aptos", size: 11, bold: true, color: { argb: colors.gold } };
+        worksheet.getCell("A2").alignment = { vertical: "middle", horizontal: "left" };
+        worksheet.getCell("G2").value = "Exported: " + exportTimestamp(generated);
+        worksheet.getCell("G2").font = { name: "Aptos", size: 10, color: { argb: colors.white } };
+        worksheet.getCell("G2").alignment = { vertical: "middle", horizontal: "right" };
+        worksheet.getRow(2).height = 25;
+        styleExcelCells(worksheet, 2, 2, 1, 10, { fill: { type: "pattern", pattern: "solid", fgColor: { argb: colors.charcoalLight } } });
+
+        worksheet.mergeCells("A3:J3");
+        worksheet.getRow(3).height = 4;
+        styleExcelCells(worksheet, 3, 3, 1, 10, { fill: { type: "pattern", pattern: "solid", fgColor: { argb: colors.gold } } });
+        worksheet.getRow(4).height = 9;
+
+        var headers = [
+          "Order Code",
+          "Product",
+          "Model",
+          "Supplier",
+          "Total Order Value USD",
+          "Advance Paid USD",
+          "Balance Payment USD",
+          "Payment",
+          "Status",
+          "ETA"
+        ];
+        worksheet.getRow(5).values = headers;
+        worksheet.getRow(5).height = 34;
+        worksheet.getRow(5).eachCell(function(cell) {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: colors.red } };
+          cell.font = { name: "Aptos", size: 10, bold: true, color: { argb: colors.white } };
+          cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+          cell.border = { bottom: { style: "medium", color: { argb: colors.red } } };
+        });
+
+        var orders = filteredOrders();
+        var totalValue = 0;
+        var totalAdvance = 0;
+        var totalBalance = 0;
+
+        orders.forEach(function(order, index) {
+          var rowNumber = index + 6;
+          var orderValue = orderTotal(order);
+          var advancePaid = orderAdvance(order);
+          var balancePayment = orderBalance(order);
+          totalValue += orderValue;
+          totalAdvance += advancePaid;
+          totalBalance += balancePayment;
+
+          var row = worksheet.getRow(rowNumber);
+          row.values = [
+            order.code || "",
+            order.product || "",
+            order.model || "",
+            order.supplier || "",
+            orderValue,
+            advancePaid,
+            { formula: "E" + rowNumber + "-F" + rowNumber, result: balancePayment },
+            paymentStageLabel(order.payment),
+            order.status || "",
+            excelDateValue(order.eta)
+          ];
+          var longestText = Math.max(String(order.product || "").length, String(order.supplier || "").length);
+          row.height = longestText > 45 ? 34 : (longestText > 28 ? 28 : 23);
+
+          row.eachCell({ includeEmpty: true }, function(cell, columnNumber) {
+            cell.fill = {
+              type: "pattern",
+              pattern: "solid",
+              fgColor: { argb: index % 2 === 0 ? colors.rowOdd : colors.rowEven }
+            };
+            cell.font = { name: "Aptos", size: 10, color: { argb: colors.bodyText } };
+            cell.alignment = {
+              vertical: "middle",
+              horizontal: columnNumber >= 5 && columnNumber <= 7 ? "right" : (columnNumber === 2 || columnNumber === 4 ? "left" : "center"),
+              wrapText: columnNumber === 2 || columnNumber === 4 || columnNumber === 8 || columnNumber === 9
+            };
+            cell.border = { bottom: { style: "thin", color: { argb: colors.line } } };
+          });
+
+          [5, 6, 7].forEach(function(columnNumber) {
+            row.getCell(columnNumber).numFmt = "$#,##0.00;[Red]-$#,##0.00";
+          });
+          row.getCell(10).numFmt = "dd-mmm-yyyy";
+
+          row.getCell(6).fill = { type: "pattern", pattern: "solid", fgColor: { argb: colors.advanceFill } };
+          row.getCell(6).font = { name: "Aptos", size: 10, color: { argb: colors.advanceText } };
+          row.getCell(7).fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: balancePayment > 0 ? colors.balanceFill : colors.paidFill }
+          };
+          row.getCell(7).font = {
+            name: "Aptos",
+            size: 10,
+            color: { argb: balancePayment > 0 ? colors.balanceText : colors.paidText },
+            bold: balancePayment <= 0
+          };
+        });
+
+        var firstDataRow = 6;
+        var lastDataRow = orders.length ? firstDataRow + orders.length - 1 : 5;
+        var totalRowNumber = lastDataRow + 1;
+        var totalRow = worksheet.getRow(totalRowNumber);
+        totalRow.values = [null, null, null, "TOTALS", totalValue, totalAdvance, totalBalance, null, null, null];
+        if (orders.length) {
+          totalRow.getCell(5).value = { formula: "SUM(E" + firstDataRow + ":E" + lastDataRow + ")", result: totalValue };
+          totalRow.getCell(6).value = { formula: "SUM(F" + firstDataRow + ":F" + lastDataRow + ")", result: totalAdvance };
+          totalRow.getCell(7).value = { formula: "SUM(G" + firstDataRow + ":G" + lastDataRow + ")", result: totalBalance };
+        }
+        totalRow.height = 28;
+        totalRow.eachCell({ includeEmpty: true }, function(cell, columnNumber) {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: colors.totalFill } };
+          cell.font = { name: "Aptos", size: 10, bold: true, color: { argb: colors.charcoal } };
+          cell.alignment = { vertical: "middle", horizontal: columnNumber >= 5 && columnNumber <= 7 ? "right" : "center" };
+          cell.border = { top: { style: "medium", color: { argb: colors.red } } };
+        });
+        [5, 6, 7].forEach(function(columnNumber) {
+          totalRow.getCell(columnNumber).numFmt = "$#,##0.00;[Red]-$#,##0.00";
+        });
+
+        worksheet.autoFilter = "A5:J" + lastDataRow;
+        worksheet.pageSetup.printArea = "A1:J" + totalRowNumber;
+        worksheet.headerFooter.oddFooter = "&LRedberry RapidFX&RPage &P of &N";
+
+        var buffer = await workbook.xlsx.writeBuffer();
+        downloadExcelBuffer("rapidfx-orders.xlsx", buffer);
+        showToast("Professional Orders Excel downloaded.");
+      } catch (error) {
+        console.error(error);
+        showToast(error && error.message ? error.message : "Orders Excel export failed. Please try again.");
+      }
     }
 
     function exportShippedOrdersExcel() {
@@ -2490,30 +2671,276 @@
       exportExcelFile("rapidfx-shipped-orders.xls", "RapidFX Shipped Orders", columns, rows, [["", "", "", "", "", "Total", totalValue, "", ""]]);
     }
 
-    function exportPassbookExcel() {
-      var balance = 0;
-      var received = 0;
-      var paid = 0;
-      var columns = [
-        { label: "Date", width: 105, type: "date" },
-        { label: "Type", width: 90 },
-        { label: "Against", width: 125 },
-        { label: "Description", width: 290, wrap: true },
-        { label: "Credit USD", width: 115, type: "money" },
-        { label: "Debit USD", width: 115, type: "money" },
-        { label: "Balance USD", width: 125, type: "money" }
+    var excelJsLoaderPromise = null;
+
+    function loadExcelJs() {
+      if (window.ExcelJS) return Promise.resolve(window.ExcelJS);
+      if (excelJsLoaderPromise) return excelJsLoaderPromise;
+
+      var sources = [
+        "https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"
       ];
-      var payments = data.payments.slice().sort(function(a, b) { return String(a.date).localeCompare(String(b.date)); });
-      var rows = payments.map(function(payment) {
-        var amount = Number(payment.amount || 0);
-        var credit = payment.type === "in" ? amount : "";
-        var debit = payment.type === "out" ? amount : "";
-        received += payment.type === "in" ? amount : 0;
-        paid += payment.type === "out" ? amount : 0;
-        balance += payment.type === "in" ? amount : -amount;
-        return [payment.date, payment.type === "in" ? "Credit" : "Debit", payment.against, payment.desc, credit, debit, balance];
+
+      excelJsLoaderPromise = new Promise(function(resolve, reject) {
+        function trySource(index) {
+          if (index >= sources.length) {
+            reject(new Error("The Excel export library could not be loaded. Please check your internet connection and try again."));
+            return;
+          }
+
+          var script = document.createElement("script");
+          script.src = sources[index];
+          script.async = true;
+          script.onload = function() {
+            if (window.ExcelJS) resolve(window.ExcelJS);
+            else trySource(index + 1);
+          };
+          script.onerror = function() {
+            script.remove();
+            trySource(index + 1);
+          };
+          document.head.appendChild(script);
+        }
+
+        trySource(0);
       });
-      exportExcelFile("rapidfx-accounts.xls", "RapidFX Accounts", columns, rows, [["", "", "", "Totals", received, paid, received - paid]]);
+
+      return excelJsLoaderPromise;
+    }
+
+    function excelDateValue(value) {
+      var parts = String(value || "").split("-");
+      if (parts.length !== 3) return null;
+      var year = Number(parts[0]);
+      var month = Number(parts[1]);
+      var day = Number(parts[2]);
+      if (!year || !month || !day) return null;
+      return new Date(Date.UTC(year, month - 1, day));
+    }
+
+    function exportTimestamp(date) {
+      var datePart = date.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric"
+      }).replace(/ /g, "-");
+      var timePart = date.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true
+      });
+      return datePart + ", " + timePart;
+    }
+
+    function styleExcelCells(worksheet, fromRow, toRow, fromColumn, toColumn, style) {
+      for (var rowNumber = fromRow; rowNumber <= toRow; rowNumber += 1) {
+        for (var columnNumber = fromColumn; columnNumber <= toColumn; columnNumber += 1) {
+          Object.assign(worksheet.getCell(rowNumber, columnNumber), style);
+        }
+      }
+    }
+
+    function downloadExcelBuffer(filename, buffer) {
+      var blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      });
+      var url = URL.createObjectURL(blob);
+      var anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+    }
+
+    async function exportPassbookExcel() {
+      showToast("Preparing professional Excel file...");
+
+      try {
+        var ExcelJS = await loadExcelJs();
+        var workbook = new ExcelJS.Workbook();
+        var generated = new Date();
+        var worksheet = workbook.addWorksheet("Accounts", {
+          properties: { defaultRowHeight: 21 },
+          views: [{ state: "frozen", ySplit: 5, showGridLines: false }],
+          pageSetup: {
+            paperSize: 9,
+            orientation: "landscape",
+            fitToPage: true,
+            fitToWidth: 1,
+            fitToHeight: 0,
+            horizontalCentered: true,
+            margins: { left: 0.3, right: 0.3, top: 0.45, bottom: 0.45, header: 0.2, footer: 0.2 }
+          }
+        });
+
+        workbook.creator = "Redberry RapidFX";
+        workbook.company = "Redberry";
+        workbook.subject = "RapidFX Accounts";
+        workbook.title = "RapidFX Accounts";
+        workbook.created = generated;
+        workbook.modified = generated;
+        workbook.calcProperties.fullCalcOnLoad = true;
+
+        var colors = {
+          charcoal: "FF23272D",
+          charcoalLight: "FF343941",
+          red: "FFAA1734",
+          gold: "FFD0A64A",
+          bodyText: "FF2E3339",
+          line: "FFD9DEE5",
+          rowEven: "FFF0F2F4",
+          rowOdd: "FFDADDE0",
+          creditFill: "FFE7F5EC",
+          creditText: "FF16713C",
+          debitFill: "FFFCE8E8",
+          debitText: "FFC62929",
+          totalFill: "FFE6E8EB",
+          white: "FFFFFFFF"
+        };
+
+        worksheet.columns = [
+          { key: "date", width: 17 },
+          { key: "type", width: 14 },
+          { key: "against", width: 21 },
+          { key: "description", width: 54 },
+          { key: "credit", width: 22 },
+          { key: "debit", width: 22 },
+          { key: "balance", width: 23 }
+        ];
+
+        worksheet.mergeCells("A1:G1");
+        worksheet.getCell("A1").value = "RapidFX Accounts";
+        worksheet.getCell("A1").font = { name: "Aptos Display", size: 25, bold: true, color: { argb: colors.white } };
+        worksheet.getCell("A1").alignment = { vertical: "middle", horizontal: "left" };
+        worksheet.getRow(1).height = 42;
+        styleExcelCells(worksheet, 1, 1, 1, 7, { fill: { type: "pattern", pattern: "solid", fgColor: { argb: colors.charcoal } } });
+
+        worksheet.mergeCells("A2:D2");
+        worksheet.mergeCells("E2:G2");
+        worksheet.getCell("A2").value = "REDBERRY  |  RAPIDFX";
+        worksheet.getCell("A2").font = { name: "Aptos", size: 11, bold: true, color: { argb: colors.gold } };
+        worksheet.getCell("A2").alignment = { vertical: "middle", horizontal: "left" };
+        worksheet.getCell("E2").value = "Exported: " + exportTimestamp(generated);
+        worksheet.getCell("E2").font = { name: "Aptos", size: 10, color: { argb: colors.white } };
+        worksheet.getCell("E2").alignment = { vertical: "middle", horizontal: "right" };
+        worksheet.getRow(2).height = 25;
+        styleExcelCells(worksheet, 2, 2, 1, 7, { fill: { type: "pattern", pattern: "solid", fgColor: { argb: colors.charcoalLight } } });
+
+        worksheet.mergeCells("A3:G3");
+        worksheet.getRow(3).height = 4;
+        styleExcelCells(worksheet, 3, 3, 1, 7, { fill: { type: "pattern", pattern: "solid", fgColor: { argb: colors.gold } } });
+        worksheet.getRow(4).height = 9;
+
+        var headers = ["Date", "Type", "Against", "Description", "Credit USD", "Debit USD", "Balance USD"];
+        worksheet.getRow(5).values = headers;
+        worksheet.getRow(5).height = 30;
+        worksheet.getRow(5).eachCell(function(cell) {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: colors.red } };
+          cell.font = { name: "Aptos", size: 11, bold: true, color: { argb: colors.white } };
+          cell.alignment = { vertical: "middle", horizontal: "center" };
+          cell.border = { bottom: { style: "medium", color: { argb: colors.red } } };
+        });
+
+        var balance = 0;
+        var received = 0;
+        var paid = 0;
+        var payments = data.payments.slice().sort(function(a, b) {
+          var dateCompare = String(a.date || "").localeCompare(String(b.date || ""));
+          if (dateCompare) return dateCompare;
+          return String(a.id || "").localeCompare(String(b.id || ""));
+        });
+
+        payments.forEach(function(payment, index) {
+          var amount = Number(payment.amount || 0);
+          var isCredit = payment.type === "in";
+          var credit = isCredit ? amount : null;
+          var debit = isCredit ? null : amount;
+          var rowNumber = index + 6;
+          received += isCredit ? amount : 0;
+          paid += isCredit ? 0 : amount;
+          balance += isCredit ? amount : -amount;
+
+          var row = worksheet.getRow(rowNumber);
+          row.values = [
+            excelDateValue(payment.date),
+            isCredit ? "Credit" : "Debit",
+            payment.against || "",
+            payment.desc || "",
+            credit,
+            debit,
+            { formula: index === 0 ? "E" + rowNumber + "-F" + rowNumber : "G" + (rowNumber - 1) + "+E" + rowNumber + "-F" + rowNumber, result: balance }
+          ];
+          row.height = String(payment.desc || "").length > 70 ? 32 : 23;
+
+          row.eachCell({ includeEmpty: true }, function(cell, columnNumber) {
+            cell.fill = {
+              type: "pattern",
+              pattern: "solid",
+              fgColor: { argb: index % 2 === 0 ? colors.rowOdd : colors.rowEven }
+            };
+            cell.font = { name: "Aptos", size: 10, color: { argb: colors.bodyText } };
+            cell.alignment = {
+              vertical: "middle",
+              horizontal: columnNumber >= 5 ? "right" : (columnNumber === 4 ? "left" : "center"),
+              wrapText: columnNumber === 4
+            };
+            cell.border = { bottom: { style: "thin", color: { argb: colors.line } } };
+          });
+
+          row.getCell(1).numFmt = "dd-mmm-yyyy";
+          [5, 6, 7].forEach(function(columnNumber) {
+            row.getCell(columnNumber).numFmt = "$#,##0.00;[Red]-$#,##0.00";
+          });
+
+          if (credit !== null) {
+            row.getCell(5).fill = { type: "pattern", pattern: "solid", fgColor: { argb: colors.creditFill } };
+            row.getCell(5).font = { name: "Aptos", size: 10, color: { argb: colors.creditText } };
+          }
+          if (debit !== null) {
+            row.getCell(6).fill = { type: "pattern", pattern: "solid", fgColor: { argb: colors.debitFill } };
+            row.getCell(6).font = { name: "Aptos", size: 10, color: { argb: colors.debitText } };
+          }
+          if (balance < 0) {
+            row.getCell(7).font = { name: "Aptos", size: 10, bold: true, color: { argb: colors.debitText } };
+          }
+        });
+
+        var firstDataRow = 6;
+        var lastDataRow = payments.length ? firstDataRow + payments.length - 1 : 5;
+        var totalRowNumber = lastDataRow + 1;
+        var totalRow = worksheet.getRow(totalRowNumber);
+        totalRow.values = [null, null, null, "TOTALS / CLOSING BALANCE", received, paid, received - paid];
+        if (payments.length) {
+          totalRow.getCell(5).value = { formula: "SUM(E" + firstDataRow + ":E" + lastDataRow + ")", result: received };
+          totalRow.getCell(6).value = { formula: "SUM(F" + firstDataRow + ":F" + lastDataRow + ")", result: paid };
+          totalRow.getCell(7).value = { formula: "E" + totalRowNumber + "-F" + totalRowNumber, result: received - paid };
+        }
+        totalRow.height = 27;
+        totalRow.eachCell({ includeEmpty: true }, function(cell, columnNumber) {
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: colors.totalFill } };
+          cell.font = { name: "Aptos", size: 10, bold: true, color: { argb: colors.charcoal } };
+          cell.alignment = { vertical: "middle", horizontal: columnNumber >= 5 ? "right" : "center" };
+          cell.border = { top: { style: "medium", color: { argb: colors.red } } };
+        });
+        [5, 6, 7].forEach(function(columnNumber) {
+          totalRow.getCell(columnNumber).numFmt = "$#,##0.00;[Red]-$#,##0.00";
+        });
+        if (received - paid < 0) totalRow.getCell(7).font = { name: "Aptos", size: 10, bold: true, color: { argb: colors.debitText } };
+
+        worksheet.autoFilter = "A5:G" + lastDataRow;
+        worksheet.pageSetup.printArea = "A1:G" + totalRowNumber;
+        worksheet.headerFooter.oddFooter = "&LRedberry RapidFX&RPage &P of &N";
+
+        var buffer = await workbook.xlsx.writeBuffer();
+        downloadExcelBuffer("rapidfx-accounts.xlsx", buffer);
+        showToast("Professional Accounts Excel downloaded.");
+      } catch (error) {
+        console.error(error);
+        showToast(error && error.message ? error.message : "Excel export failed. Please try again.");
+      }
     }
 
     function downloadFile(filename, text, type) {
