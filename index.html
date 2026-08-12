@@ -1669,9 +1669,15 @@
           payments: recordsFromSnapshot(snaps[1], "id"),
           statuses: recordsFromSnapshot(snaps[2], "id")
         });
+        var repairedSupplierPayments = repairSupplierPaymentDuplicates();
         saveLocalDataOnly();
         render();
-        firebaseState.message = "Synced with Firestore.";
+        if (repairedSupplierPayments) {
+          await syncCloudData();
+          firebaseState.message = "Synced with Firestore. Duplicate supplier payments repaired.";
+        } else {
+          firebaseState.message = "Synced with Firestore.";
+        }
         if (showMessage !== false) showToast("Cloud data synced.");
       } catch (error) {
         firebaseState.message = "Cloud read failed: " + cleanError(error);
@@ -1772,22 +1778,44 @@
       return Number.isFinite(value) ? value : orderTotal(order);
     }
 
-    function removeExtraAutoPayments(orderCode, paymentKind, keepId) {
-      data.payments = data.payments.filter(function(payment) {
-        if (!payment.autoManaged || payment.autoOrderCode !== orderCode || payment.autoPaymentKind !== paymentKind) return true;
-        return !!keepId && payment.id === keepId;
+    function supplierPaymentKindMatches(payment, paymentKind) {
+      if (payment.autoManaged && payment.autoPaymentKind) return payment.autoPaymentKind === paymentKind;
+      var description = String(payment.desc || "").toLowerCase();
+      return paymentKind === "advance" ? description.indexOf("advance") >= 0 : description.indexOf("balance") >= 0;
+    }
+
+    function supplierPaymentCandidates(order, paymentKind, amount, previousCode) {
+      var codes = [order.code, previousCode].filter(Boolean);
+      return data.payments.filter(function(payment) {
+        var linkedAuto = payment.autoManaged && payment.autoPaymentKind === paymentKind &&
+          (codes.indexOf(payment.autoOrderCode) >= 0 || codes.indexOf(payment.against) >= 0);
+        var matchingManual = !payment.autoManaged && payment.type === "out" &&
+          codes.indexOf(payment.against) >= 0 &&
+          supplierPaymentKindMatches(payment, paymentKind) &&
+          Math.abs(Number(payment.amount || 0) - Number(amount || 0)) < 0.01;
+        return linkedAuto || matchingManual;
+      }).sort(function(a, b) {
+        var dateCompare = String(a.date || "9999-12-31").localeCompare(String(b.date || "9999-12-31"));
+        if (dateCompare) return dateCompare;
+        return Number(!!a.autoManaged) - Number(!!b.autoManaged);
       });
     }
 
+    function removeSupplierPaymentDuplicates(candidates, keepId) {
+      var duplicateIds = candidates.filter(function(payment) { return payment.id !== keepId; }).map(function(payment) { return payment.id; });
+      if (!duplicateIds.length) return false;
+      data.payments = data.payments.filter(function(payment) { return duplicateIds.indexOf(payment.id) < 0; });
+      return true;
+    }
+
     function upsertSupplierPayment(order, paymentKind, amount, previousCode) {
-      var entry = data.payments.find(function(payment) {
-        return payment.autoManaged && payment.autoPaymentKind === paymentKind &&
-          (payment.autoOrderCode === order.code || payment.autoOrderCode === previousCode || payment.against === previousCode);
-      });
+      var candidates = supplierPaymentCandidates(order, paymentKind, amount, previousCode);
+      var entry = candidates[0];
       if (!Number.isFinite(amount) || amount <= 0) {
         data.payments = data.payments.filter(function(payment) {
           return !(payment.autoManaged && payment.autoPaymentKind === paymentKind &&
-            (payment.autoOrderCode === order.code || payment.autoOrderCode === previousCode || payment.against === previousCode));
+            (payment.autoOrderCode === order.code || payment.autoOrderCode === previousCode ||
+             payment.against === order.code || payment.against === previousCode));
         });
         return;
       }
@@ -1815,9 +1843,35 @@
           autoOrderCode: order.code,
           autoPaymentKind: paymentKind
         });
+        removeSupplierPaymentDuplicates(candidates, entry.id);
       }
-      removeExtraAutoPayments(order.code, paymentKind, entry.id);
-      if (previousCode && previousCode !== order.code) removeExtraAutoPayments(previousCode, paymentKind);
+    }
+
+    function repairSupplierPaymentDuplicates() {
+      var repaired = false;
+      data.orders.forEach(function(order) {
+        var stage = paymentStageText(order.payment);
+        var kinds = stage === "Balance Payment Paid" ? ["advance", "balance"] :
+          stage === "Advance Sent to Supplier" ? ["advance"] : [];
+        kinds.forEach(function(paymentKind) {
+          var amount = paymentKind === "advance" ? orderAdvance(order) : orderBalance(order);
+          var candidates = supplierPaymentCandidates(order, paymentKind, amount);
+          if (candidates.length < 2) return;
+          var entry = candidates[0];
+          var description = paymentKind === "advance" ? "Paid to supplier - advance payment" : "Paid to supplier - balance payment";
+          Object.assign(entry, {
+            type: "out",
+            against: order.code,
+            desc: description,
+            amount: amount,
+            autoManaged: true,
+            autoOrderCode: order.code,
+            autoPaymentKind: paymentKind
+          });
+          if (removeSupplierPaymentDuplicates(candidates, entry.id)) repaired = true;
+        });
+      });
+      return repaired;
     }
 
     function syncSupplierPaymentsForOrder(order, previousCode) {
@@ -2034,7 +2088,7 @@
           "<td class='money'>" + (payment.type === "in" ? money.format(amount) : "-") + "</td>" +
           "<td class='money'>" + (payment.type === "out" ? money.format(amount) : "-") + "</td>" +
           "<td class='money'><strong>" + money.format(balance) + "</strong></td>" +
-          "<td><div class='row-actions'>" + (payment.autoManaged ? "<button class='btn small' type='button' onclick='editOrder(&quot;" + escapeHtml(payment.against) + "&quot;)'>View Order</button><span class='pill gold'>Auto</span>" : "<button class='btn small' type='button' onclick='editPayment(&quot;" + payment.id + "&quot;)'>Edit</button><button class='btn small danger' type='button' onclick='deletePayment(&quot;" + payment.id + "&quot;)'>Delete</button>") + "</div></td>" +
+          "<td><div class='row-actions'>" + (payment.autoManaged ? "<button class='btn small' type='button' onclick='editAutoPaymentDate(&quot;" + payment.id + "&quot;)'>Edit Date</button><button class='btn small' type='button' onclick='editOrder(&quot;" + escapeHtml(payment.against) + "&quot;)'>View Order</button><span class='pill gold'>Auto</span>" : "<button class='btn small' type='button' onclick='editPayment(&quot;" + payment.id + "&quot;)'>Edit</button><button class='btn small danger' type='button' onclick='deletePayment(&quot;" + payment.id + "&quot;)'>Delete</button>") + "</div></td>" +
         "</tr>";
       }).join("");
       el("#paymentsTable").innerHTML = rows || "<tr><td colspan='8'><div class='empty'>No payment entries yet.</div></td></tr>";
@@ -2415,6 +2469,20 @@
       data.statuses = data.statuses.filter(function(status) { return !(status.autoShipmentStatus && status.order === code); });
       showPage("orders");
       await saveData("Order reopened.");
+    }
+
+    async function editAutoPaymentDate(id) {
+      var item = data.payments.find(function(payment) { return payment.id === id; });
+      if (!item || !item.autoManaged) return;
+      var nextDate = window.prompt("Payment date (YYYY-MM-DD):", item.date || today);
+      if (nextDate == null) return;
+      nextDate = String(nextDate).trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(nextDate) || Number.isNaN(Date.parse(nextDate + "T00:00:00"))) {
+        showToast("Enter a valid date in YYYY-MM-DD format.");
+        return;
+      }
+      item.date = nextDate;
+      await saveData("Automatic payment date updated.");
     }
 
     function editPayment(id) {
