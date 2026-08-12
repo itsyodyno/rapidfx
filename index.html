@@ -754,6 +754,58 @@
 
     .hidden { display: none !important; }
 
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background: rgba(17, 19, 24, 0.62);
+      backdrop-filter: blur(6px);
+    }
+
+    .modal-card {
+      width: min(620px, 100%);
+      max-height: calc(100vh - 40px);
+      overflow-y: auto;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      box-shadow: 0 30px 90px rgba(17, 19, 24, 0.28);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 18px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, #fff, #f9fafb);
+    }
+
+    .modal-header h2 { margin-bottom: 5px; font-size: 21px; }
+    .modal-header p { margin-bottom: 0; color: var(--muted); font-size: 13px; }
+    .modal-body { padding: 18px; }
+
+    .shipment-details {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .shipment-detail {
+      padding: 11px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--soft);
+    }
+
+    .shipment-detail span { display: block; color: var(--muted); font-size: 11px; font-weight: 800; text-transform: uppercase; }
+    .shipment-detail strong { display: block; margin-top: 5px; }
+
     .cloud-panel {
       display: flex;
       align-items: center;
@@ -854,7 +906,7 @@
     @media (max-width: 1120px) {
       .app { grid-template-columns: 1fr; }
       .sidebar { position: static; height: auto; }
-      .nav { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+      .nav { grid-template-columns: repeat(6, minmax(0, 1fr)); }
       .sidebar-panel { display: none; }
       .summary-grid { grid-template-columns: 1fr; }
       .cloud-panel { align-items: stretch; flex-direction: column; }
@@ -870,6 +922,17 @@
       .form-tabs { grid-template-columns: 1fr; }
       .cloud-grid, .cloud-actions { justify-content: stretch; }
       .cloud-grid .field, .cloud-panel .btn { max-width: none; width: 100%; }
+      .shipment-details { grid-template-columns: 1fr; }
+      table.responsive-cards { min-width: 0; }
+      table.responsive-cards thead { display: none; }
+      table.responsive-cards,
+      table.responsive-cards tbody,
+      table.responsive-cards tr,
+      table.responsive-cards td { display: block; width: 100%; }
+      table.responsive-cards tr { margin-bottom: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+      table.responsive-cards td { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+      table.responsive-cards td:last-child { border-bottom: 0; }
+      table.responsive-cards td::before { content: attr(data-label); color: var(--muted); font-size: 11px; font-weight: 850; letter-spacing: 0.06em; text-transform: uppercase; }
     }
   </style>
 </head>
@@ -937,6 +1000,7 @@
       <nav class="nav" aria-label="Panel pages">
         <button class="active" type="button" data-page-link="home">Home <span class="nav-count" id="homeCount">0</span></button>
         <button type="button" data-page-link="orders">Orders <span class="nav-count" id="ordersCount">0</span></button>
+        <button type="button" data-page-link="shipped">Shipped Orders <span class="nav-count" id="shippedCount">0</span></button>
         <button type="button" data-page-link="passbook">Accounts <span class="nav-count" id="paymentsCount">0</span></button>
         <button type="button" data-page-link="production">Production <span class="nav-count" id="statusCount">0</span></button>
         <button type="button" data-page-link="add">Add Records <span class="nav-count">+</span></button>
@@ -1043,9 +1107,7 @@
                   <label for="ordersPaymentFilter">Payment stage</label>
                   <select id="ordersPaymentFilter">
                     <option value="">All payment stages</option>
-                    <option>Advance pending</option>
                     <option>Advance Sent to Supplier</option>
-                    <option>Balance pending</option>
                     <option>Balance Payment Paid</option>
                   </select>
                 </div>
@@ -1087,6 +1149,78 @@
                   </tr>
                 </thead>
                 <tbody id="ordersTable"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section class="page" id="page-shipped">
+        <section class="grid overview" aria-label="Shipped order summary">
+          <article class="metric"><span>Total shipped orders</span><strong id="totalShippedOrders">0</strong><small>All finished and dispatched orders.</small></article>
+          <article class="metric"><span>Total shipment value (USD)</span><strong id="totalShipmentValue">$0</strong><small>Final value of all shipped orders.</small></article>
+          <article class="metric"><span>Shipped this month</span><strong id="shippedThisMonth">0</strong><small>Orders dispatched in the current month.</small></article>
+          <article class="metric"><span>This month's shipment value</span><strong id="monthShipmentValue">$0</strong><small>Shipment value dispatched this month.</small></article>
+        </section>
+
+        <section class="section">
+          <div class="section-header">
+            <div>
+              <h2>Shipped Orders</h2>
+              <p>Archive of orders that have completed production and have been shipped.</p>
+            </div>
+            <div class="actions">
+              <button class="btn" id="shippedFilterBtn" type="button">Filter</button>
+              <button class="btn" id="shippedExcelBtn" type="button">Export &amp; Download Excel</button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div class="filter-panel hidden" id="shippedFilterPanel">
+              <div class="split">
+                <div class="field">
+                  <label for="shippedSearch">Search shipped orders</label>
+                  <input id="shippedSearch" type="search" placeholder="Order number, product, model, supplier" />
+                </div>
+                <div class="field">
+                  <label for="shippedSupplierFilter">Supplier</label>
+                  <select id="shippedSupplierFilter"><option value="">All suppliers</option></select>
+                </div>
+              </div>
+              <div class="split">
+                <div class="field"><label for="shippedDateFrom">Shipped from</label><input id="shippedDateFrom" type="date" /></div>
+                <div class="field"><label for="shippedDateTo">Shipped to</label><input id="shippedDateTo" type="date" /></div>
+              </div>
+              <div class="split">
+                <div class="field">
+                  <label for="shippedPaymentFilter">Payment status</label>
+                  <select id="shippedPaymentFilter">
+                    <option value="">All payment statuses</option>
+                    <option>Advance Sent to Supplier</option>
+                    <option>Balance Payment Paid</option>
+                    <option value="not-selected">Not selected</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="shippedClearFilterBtn">Clear</label>
+                  <button class="btn ghost" id="shippedClearFilterBtn" type="button">Clear Filter</button>
+                </div>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="responsive-cards">
+                <thead>
+                  <tr>
+                    <th>Order</th>
+                    <th>Product</th>
+                    <th>Supplier</th>
+                    <th>Quantity</th>
+                    <th>Shipped Date</th>
+                    <th>Total Shipment Value (USD)</th>
+                    <th>Payment Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="shippedTable"></tbody>
               </table>
             </div>
           </div>
@@ -1181,9 +1315,9 @@
                   </select>
                 </div>
                 <div class="field">
-                  <label for="paymentStage">Payment stage</label>
+                  <label for="paymentStage">Payment stage (optional)</label>
                   <select id="paymentStage" name="paymentStage">
-                    <option>Advance pending</option><option>Advance Sent to Supplier</option><option>Balance pending</option><option>Balance Payment Paid</option>
+                    <option value="">Not selected</option><option>Advance Sent to Supplier</option><option>Balance Payment Paid</option>
                   </select>
                 </div>
               </div>
@@ -1236,6 +1370,42 @@
     </main>
   </div>
 
+  <div class="modal-backdrop hidden" id="shipmentModal" role="dialog" aria-modal="true" aria-labelledby="shipmentModalTitle">
+    <section class="modal-card">
+      <div class="modal-header">
+        <div>
+          <h2 id="shipmentModalTitle">Mark Order as Shipped</h2>
+          <p id="shipmentModalSubtitle">Add the final dispatch details.</p>
+        </div>
+        <button class="btn small ghost" id="closeShipmentModalBtn" type="button" aria-label="Close">Close</button>
+      </div>
+      <div class="modal-body">
+        <div class="shipment-details" id="shipmentOrderSummary"></div>
+        <form class="form active" id="shipmentForm">
+          <input id="shipmentOrderCode" name="shipmentOrderCode" type="hidden" />
+          <div class="split">
+            <div class="field"><label for="shippedDate">Actual shipped date</label><input id="shippedDate" name="shippedDate" type="date" required /></div>
+            <div class="field"><label for="shippedQuantity">Quantity shipped</label><input id="shippedQuantity" name="shippedQuantity" type="number" min="0.01" step="0.01" required /></div>
+          </div>
+          <div class="field"><label for="shipmentValue">Final shipment value (USD)</label><input id="shipmentValue" name="shipmentValue" type="number" min="0" step="0.01" required /></div>
+          <div class="field">
+            <label for="shipmentPaymentStage">Payment status (optional)</label>
+            <select id="shipmentPaymentStage" name="shipmentPaymentStage">
+              <option value="">Not selected</option>
+              <option>Advance Sent to Supplier</option>
+              <option>Balance Payment Paid</option>
+            </select>
+          </div>
+          <div class="field"><label for="shipmentRemarks">Shipment remarks (optional)</label><textarea id="shipmentRemarks" name="shipmentRemarks" placeholder="Container number, dispatch note, or other final remarks"></textarea></div>
+          <div class="form-actions">
+            <button class="btn primary" id="shipmentSubmitBtn" type="submit">Mark as Shipped</button>
+            <button class="btn ghost" id="cancelShipmentBtn" type="button">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </section>
+  </div>
+
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script>
@@ -1257,6 +1427,8 @@
     var currentForm = "order";
     var editState = { order: null, payment: null, status: null };
     var ordersFilterOpen = false;
+    var shippedFilterOpen = false;
+    var shipmentModalReadOnly = false;
     var setupOpen = false;
     var firebaseState = {
       mods: null,
@@ -1315,14 +1487,15 @@
       safe.payments = Array.isArray(safe.payments) ? safe.payments : [];
       safe.statuses = Array.isArray(safe.statuses) ? safe.statuses : [];
       safe.orders.forEach(function(order) {
-        if (String(order.payment || "").toLowerCase() === "advance received") {
-          order.payment = "Advance Sent to Supplier";
-        }
+        var normalizedPayment = paymentStageText(order.payment);
+        order.payment = normalizedPayment === "Advance Sent to Supplier" || normalizedPayment === "Balance Payment Paid" ? normalizedPayment : "";
         if (order.totalValue == null || order.totalValue === "") {
           order.totalValue = order.value != null && order.value !== "" ? Number(order.value) : Number(order.qty || 0) * Number(order.unitPrice || 0);
         }
         order.advanceValue = order.advanceValue == null || order.advanceValue === "" ? 0 : Number(order.advanceValue);
         order.model = order.model || "";
+        order.shipped = order.shipped === true || String(order.status || "").toLowerCase() === "shipped" || !!order.shippedDate;
+        if (order.shipped) order.status = "Shipped";
       });
       safe.payments.forEach(function(item) { if (!item.id) item.id = uid("pay"); });
       safe.statuses.forEach(function(item) { if (!item.id) item.id = uid("st"); });
@@ -1580,8 +1753,90 @@
     }
 
     function paymentStageText(stage) {
-      var value = String(stage || "");
-      return value === "Paid in full" ? "Balance Payment Paid" : value;
+      var value = String(stage || "").trim();
+      if (value === "Paid in full") return "Balance Payment Paid";
+      if (value.toLowerCase() === "advance received") return "Advance Sent to Supplier";
+      return value;
+    }
+
+    function paymentStageLabel(stage) {
+      return paymentStageText(stage) || "Not selected";
+    }
+
+    function isShipped(order) {
+      return !!(order && (order.shipped === true || order.shippedDate || String(order.status || "").toLowerCase() === "shipped"));
+    }
+
+    function orderShipmentValue(order) {
+      var value = Number(order.shipmentValue);
+      return Number.isFinite(value) ? value : orderTotal(order);
+    }
+
+    function removeExtraAutoPayments(orderCode, paymentKind, keepId) {
+      data.payments = data.payments.filter(function(payment) {
+        if (!payment.autoManaged || payment.autoOrderCode !== orderCode || payment.autoPaymentKind !== paymentKind) return true;
+        return !!keepId && payment.id === keepId;
+      });
+    }
+
+    function upsertSupplierPayment(order, paymentKind, amount, previousCode) {
+      var entry = data.payments.find(function(payment) {
+        return payment.autoManaged && payment.autoPaymentKind === paymentKind &&
+          (payment.autoOrderCode === order.code || payment.autoOrderCode === previousCode || payment.against === previousCode);
+      });
+      if (!Number.isFinite(amount) || amount <= 0) {
+        data.payments = data.payments.filter(function(payment) {
+          return !(payment.autoManaged && payment.autoPaymentKind === paymentKind &&
+            (payment.autoOrderCode === order.code || payment.autoOrderCode === previousCode || payment.against === previousCode));
+        });
+        return;
+      }
+      var description = paymentKind === "advance" ? "Paid to supplier - advance payment" : "Paid to supplier - balance payment";
+      if (!entry) {
+        entry = {
+          id: uid("auto-pay"),
+          date: today,
+          type: "out",
+          against: order.code,
+          desc: description,
+          amount: amount,
+          autoManaged: true,
+          autoOrderCode: order.code,
+          autoPaymentKind: paymentKind
+        };
+        data.payments.push(entry);
+      } else {
+        Object.assign(entry, {
+          type: "out",
+          against: order.code,
+          desc: description,
+          amount: amount,
+          autoManaged: true,
+          autoOrderCode: order.code,
+          autoPaymentKind: paymentKind
+        });
+      }
+      removeExtraAutoPayments(order.code, paymentKind, entry.id);
+      if (previousCode && previousCode !== order.code) removeExtraAutoPayments(previousCode, paymentKind);
+    }
+
+    function syncSupplierPaymentsForOrder(order, previousCode) {
+      var stage = paymentStageText(order.payment);
+      var codes = [order.code, previousCode].filter(Boolean);
+      if (stage !== "Advance Sent to Supplier" && stage !== "Balance Payment Paid") {
+        data.payments = data.payments.filter(function(payment) {
+          return !(payment.autoManaged && codes.indexOf(payment.autoOrderCode) >= 0);
+        });
+        return;
+      }
+      upsertSupplierPayment(order, "advance", orderAdvance(order), previousCode);
+      if (stage === "Balance Payment Paid") {
+        upsertSupplierPayment(order, "balance", orderBalance(order), previousCode);
+      } else {
+        data.payments = data.payments.filter(function(payment) {
+          return !(payment.autoManaged && payment.autoPaymentKind === "balance" && codes.indexOf(payment.autoOrderCode) >= 0);
+        });
+      }
     }
 
     function statusClass(text) {
@@ -1597,10 +1852,10 @@
       var totalValue = data.orders.reduce(function(sum, order) { return sum + orderTotal(order); }, 0);
       var received = data.payments.reduce(function(sum, item) { return sum + (item.type === "in" ? Number(item.amount || 0) : 0); }, 0);
       var paid = data.payments.reduce(function(sum, item) { return sum + (item.type === "out" ? Number(item.amount || 0) : 0); }, 0);
-      var active = data.orders.filter(function(order) { return String(order.status).toLowerCase().indexOf("complete") < 0; }).length;
-      var production = data.orders.filter(function(order) { return /production|qc|packing|ready/i.test(order.status); }).length;
+      var active = data.orders.filter(function(order) { return !isShipped(order) && String(order.status).toLowerCase().indexOf("complete") < 0; }).length;
+      var production = data.orders.filter(function(order) { return !isShipped(order) && /production|qc|packing|ready/i.test(order.status); }).length;
       var avg = data.statuses.length ? Math.round(data.statuses.reduce(function(sum, item) { return sum + Number(item.progress || 0); }, 0) / data.statuses.length) : 0;
-      var activeDates = data.orders.filter(function(order) { return order.eta && String(order.status).toLowerCase().indexOf("complete") < 0; }).map(function(order) { return order.eta; }).sort();
+      var activeDates = data.orders.filter(function(order) { return order.eta && !isShipped(order) && String(order.status).toLowerCase().indexOf("complete") < 0; }).map(function(order) { return order.eta; }).sort();
       return { totalValue: totalValue, received: received, paid: paid, balance: received - paid, active: active, production: production, avg: avg, nextEta: activeDates[0] || "-" };
     }
 
@@ -1614,6 +1869,7 @@
       var titles = {
         home: ["Home", "RapidFX - Order command center", "Summary dashboard for RapidFX orders, accounts, production progress, and recent updates."],
         orders: ["Orders", "RapidFX Orders", "Manage all existing and new RapidFX orders in a dedicated page."],
+        shipped: ["Shipped Orders", "Completed & Shipped Orders", "Review every finished order with its dispatch date, quantity, shipment value, and payment status."],
         passbook: ["Accounts", "RapidFX Accounts", "Track every payment received from RapidFX and every payment made out."],
         production: ["Production", "RapidFX Production Status", "Review mass production progress and factory status updates."],
         add: ["Add Records", "Add or Edit RapidFX Records", "Create or update orders, payment entries, and production updates."]
@@ -1654,7 +1910,8 @@
       el("#productionCount").textContent = t.production;
       el("#nextEta").textContent = t.nextEta;
       el("#homeCount").textContent = data.orders.length + data.payments.length + data.statuses.length;
-      el("#ordersCount").textContent = data.orders.length;
+      el("#ordersCount").textContent = data.orders.filter(function(order) { return !isShipped(order); }).length;
+      el("#shippedCount").textContent = data.orders.filter(isShipped).length;
       el("#paymentsCount").textContent = data.payments.length;
       el("#statusCount").textContent = data.statuses.length;
     }
@@ -1664,7 +1921,7 @@
       var orders = filteredOrders();
       var rows = orders.map(function(order) {
         var modelText = order.model ? "<small>" + escapeHtml(order.model) + "</small>" : "";
-        var paymentText = paymentStageText(order.payment);
+        var paymentText = paymentStageLabel(order.payment);
         return "<tr>" +
           "<td><strong>" + escapeHtml(order.code) + "</strong>" + modelText + "</td>" +
           "<td><strong>" + escapeHtml(order.product) + "</strong><small>" + escapeHtml(paymentText) + "</small></td>" +
@@ -1675,11 +1932,92 @@
           "<td><span class='pill " + statusClass(paymentText) + "'>" + escapeHtml(paymentText) + "</span></td>" +
           "<td><span class='pill " + statusClass(order.status) + "'>" + escapeHtml(order.status) + "</span></td>" +
           "<td>" + escapeHtml(order.eta || "-") + "</td>" +
-          "<td><div class='row-actions'><button class='btn small' type='button' onclick='editOrder(&quot;" + escapeHtml(order.code) + "&quot;)'>Edit</button><button class='btn small danger' type='button' onclick='deleteOrder(&quot;" + escapeHtml(order.code) + "&quot;)'>Delete</button></div></td>" +
+          "<td><div class='row-actions'><button class='btn small primary' type='button' onclick='openShipmentModal(&quot;" + escapeHtml(order.code) + "&quot;)'>Mark as Shipped</button><button class='btn small' type='button' onclick='editOrder(&quot;" + escapeHtml(order.code) + "&quot;)'>Edit</button><button class='btn small danger' type='button' onclick='deleteOrder(&quot;" + escapeHtml(order.code) + "&quot;)'>Delete</button></div></td>" +
         "</tr>";
       }).join("");
-      var emptyText = data.orders.length ? "No orders match this filter." : "No orders yet. Add your first RapidFX order.";
+      var activeOrderCount = data.orders.filter(function(order) { return !isShipped(order); }).length;
+      var emptyText = activeOrderCount ? "No orders match this filter." : "No active orders yet. Add a new order or reopen a shipped order.";
       el("#ordersTable").innerHTML = rows || "<tr><td colspan='10'><div class='empty'>" + emptyText + "</div></td></tr>";
+    }
+
+    function shippedOrders() {
+      return data.orders.filter(isShipped).sort(function(a, b) {
+        var dateCompare = String(b.shippedDate || "").localeCompare(String(a.shippedDate || ""));
+        return dateCompare || orderSequenceNumber(b) - orderSequenceNumber(a);
+      });
+    }
+
+    function shippedFilterValues() {
+      return {
+        search: String(el("#shippedSearch") ? el("#shippedSearch").value : "").trim().toLowerCase(),
+        supplier: el("#shippedSupplierFilter") ? el("#shippedSupplierFilter").value : "",
+        payment: el("#shippedPaymentFilter") ? el("#shippedPaymentFilter").value : "",
+        from: el("#shippedDateFrom") ? el("#shippedDateFrom").value : "",
+        to: el("#shippedDateTo") ? el("#shippedDateTo").value : ""
+      };
+    }
+
+    function filteredShippedOrders() {
+      var filters = shippedFilterValues();
+      return shippedOrders().filter(function(order) {
+        var payment = paymentStageText(order.payment);
+        var searchable = [order.code, order.product, order.model, order.supplier, order.shippedDate, order.shipmentRemarks].join(" ").toLowerCase();
+        if (filters.search && searchable.indexOf(filters.search) < 0) return false;
+        if (filters.supplier && order.supplier !== filters.supplier) return false;
+        if (filters.payment === "not-selected" && payment) return false;
+        if (filters.payment && filters.payment !== "not-selected" && payment !== filters.payment) return false;
+        if (filters.from && String(order.shippedDate || "") < filters.from) return false;
+        if (filters.to && String(order.shippedDate || "") > filters.to) return false;
+        return true;
+      });
+    }
+
+    function updateShippedFilterPanel() {
+      var panel = el("#shippedFilterPanel");
+      var button = el("#shippedFilterBtn");
+      if (panel) panel.classList.toggle("hidden", !shippedFilterOpen);
+      if (button) button.textContent = shippedFilterOpen ? "Hide Filter" : "Filter";
+    }
+
+    function renderShippedSupplierFilter() {
+      var select = el("#shippedSupplierFilter");
+      if (!select) return;
+      var selected = select.value;
+      var suppliers = shippedOrders().map(function(order) { return order.supplier; }).filter(Boolean).filter(function(value, index, list) { return list.indexOf(value) === index; }).sort();
+      select.innerHTML = "<option value=''>All suppliers</option>" + suppliers.map(function(supplier) {
+        return "<option value='" + escapeHtml(supplier) + "'>" + escapeHtml(supplier) + "</option>";
+      }).join("");
+      select.value = suppliers.indexOf(selected) >= 0 ? selected : "";
+    }
+
+    function renderShippedOrders() {
+      updateShippedFilterPanel();
+      renderShippedSupplierFilter();
+      var allShipped = shippedOrders();
+      var orders = filteredShippedOrders();
+      var currentMonth = today.slice(0, 7);
+      var monthOrders = allShipped.filter(function(order) { return String(order.shippedDate || "").slice(0, 7) === currentMonth; });
+      el("#totalShippedOrders").textContent = allShipped.length;
+      el("#totalShipmentValue").textContent = money.format(allShipped.reduce(function(sum, order) { return sum + orderShipmentValue(order); }, 0));
+      el("#shippedThisMonth").textContent = monthOrders.length;
+      el("#monthShipmentValue").textContent = money.format(monthOrders.reduce(function(sum, order) { return sum + orderShipmentValue(order); }, 0));
+
+      var rows = orders.map(function(order) {
+        var modelText = order.model ? "<small>" + escapeHtml(order.model) + "</small>" : "";
+        var payment = paymentStageLabel(order.payment);
+        return "<tr>" +
+          "<td data-label='Order'><strong>" + escapeHtml(order.code) + "</strong>" + modelText + "</td>" +
+          "<td data-label='Product'><strong>" + escapeHtml(order.product) + "</strong><small>" + escapeHtml(order.shipmentRemarks || "No shipment remarks") + "</small></td>" +
+          "<td data-label='Supplier'>" + escapeHtml(order.supplier) + "</td>" +
+          "<td data-label='Quantity'>" + escapeHtml(order.shippedQuantity || "-") + "</td>" +
+          "<td data-label='Shipped Date'>" + escapeHtml(order.shippedDate || "-") + "</td>" +
+          "<td data-label='Shipment Value' class='money'>" + money.format(orderShipmentValue(order)) + "</td>" +
+          "<td data-label='Payment Status'><span class='pill " + statusClass(payment) + "'>" + escapeHtml(payment) + "</span></td>" +
+          "<td data-label='Actions'><div class='row-actions'><button class='btn small' type='button' onclick='viewShippedOrder(&quot;" + escapeHtml(order.code) + "&quot;)'>View Details</button><button class='btn small' type='button' onclick='openShipmentModal(&quot;" + escapeHtml(order.code) + "&quot;)'>Edit</button><button class='btn small danger' type='button' onclick='reopenOrder(&quot;" + escapeHtml(order.code) + "&quot;)'>Reopen</button></div></td>" +
+        "</tr>";
+      }).join("");
+      var emptyText = allShipped.length ? "No shipped orders match this filter." : "No shipped orders yet. Use Mark as Shipped from the Orders page.";
+      el("#shippedTable").innerHTML = rows || "<tr><td colspan='8'><div class='empty'>" + emptyText + "</div></td></tr>";
     }
 
     function renderPayments() {
@@ -1696,7 +2034,7 @@
           "<td class='money'>" + (payment.type === "in" ? money.format(amount) : "-") + "</td>" +
           "<td class='money'>" + (payment.type === "out" ? money.format(amount) : "-") + "</td>" +
           "<td class='money'><strong>" + money.format(balance) + "</strong></td>" +
-          "<td><div class='row-actions'><button class='btn small' type='button' onclick='editPayment(&quot;" + payment.id + "&quot;)'>Edit</button><button class='btn small danger' type='button' onclick='deletePayment(&quot;" + payment.id + "&quot;)'>Delete</button></div></td>" +
+          "<td><div class='row-actions'>" + (payment.autoManaged ? "<button class='btn small' type='button' onclick='editOrder(&quot;" + escapeHtml(payment.against) + "&quot;)'>View Order</button><span class='pill gold'>Auto</span>" : "<button class='btn small' type='button' onclick='editPayment(&quot;" + payment.id + "&quot;)'>Edit</button><button class='btn small danger' type='button' onclick='deletePayment(&quot;" + payment.id + "&quot;)'>Delete</button>") + "</div></td>" +
         "</tr>";
       }).join("");
       el("#paymentsTable").innerHTML = rows || "<tr><td colspan='8'><div class='empty'>No payment entries yet.</div></td></tr>";
@@ -1725,7 +2063,7 @@
 
     function renderHome() {
       var statusMap = latestStatusByOrder();
-      var orders = data.orders.slice().sort(function(a, b) { return String(a.eta || "9999").localeCompare(String(b.eta || "9999")); }).slice(0, 5);
+      var orders = data.orders.filter(function(order) { return !isShipped(order); }).sort(function(a, b) { return String(a.eta || "9999").localeCompare(String(b.eta || "9999")); }).slice(0, 5);
       el("#homeOrderList").innerHTML = orders.map(function(order) {
         var st = statusMap[order.code];
         return "<div class='mini-item'><div><strong>" + escapeHtml(order.code) + " - " + escapeHtml(order.product) + "</strong><small>" + escapeHtml(order.supplier) + " | " + escapeHtml(order.status) + " | ETA " + escapeHtml(order.eta || "-") + "</small></div><span class='pill " + statusClass(st ? st.stage : order.status) + "'>" + (st ? Number(st.progress || 0) + "%" : escapeHtml(order.status)) + "</span></div>";
@@ -1765,6 +2103,7 @@
     function filteredOrders() {
       var filters = orderFilterValues();
       return sortedOrders().filter(function(order) {
+        if (isShipped(order)) return false;
         var paymentText = paymentStageText(order.payment);
         var searchable = [order.code, order.product, order.model, order.supplier, paymentText, order.status, order.eta].join(" ").toLowerCase();
         if (filters.search && searchable.indexOf(filters.search) < 0) return false;
@@ -1800,7 +2139,7 @@
     function renderOrderSelects() {
       var paymentOrders = latestOrders(10);
       var paymentOptions = ["<option value='General'>General</option>"].concat(paymentOrders.map(function(order) { return "<option value='" + escapeHtml(order.code) + "'>" + escapeHtml(orderLabel(order)) + "</option>"; })).join("");
-      var statusOptions = data.orders.map(function(order) { return "<option value='" + escapeHtml(order.code) + "'>" + escapeHtml(orderLabel(order)) + "</option>"; }).join("");
+      var statusOptions = data.orders.filter(function(order) { return !isShipped(order); }).map(function(order) { return "<option value='" + escapeHtml(order.code) + "'>" + escapeHtml(orderLabel(order)) + "</option>"; }).join("");
       el("#paymentAgainst").innerHTML = paymentOptions;
       el("#statusOrder").innerHTML = statusOptions || "<option value=''>Add an order first</option>";
     }
@@ -1808,6 +2147,7 @@
     function render() {
       renderMetrics();
       renderOrders();
+      renderShippedOrders();
       renderPayments();
       renderStatuses();
       renderHome();
@@ -1822,6 +2162,7 @@
       var orderCode = String(form.get("orderCode") || "").trim();
       var totalValue = Number(form.get("orderTotalValue"));
       var advanceValue = Number(form.get("orderAdvanceValue"));
+      var selectedPaymentStage = paymentStageText(form.get("paymentStage"));
       if (!orderCode) {
         showToast("Add the order number.");
         return;
@@ -1838,6 +2179,10 @@
         showToast("Advance paid cannot be higher than total order value.");
         return;
       }
+      if (selectedPaymentStage === "Advance Sent to Supplier" && advanceValue <= 0) {
+        showToast("Add the advance paid value before marking it sent to the supplier.");
+        return;
+      }
       var duplicate = data.orders.find(function(item) { return item.code === orderCode && item.code !== editState.order; });
       if (duplicate) {
         showToast("This order number already exists.");
@@ -1850,24 +2195,31 @@
         supplier: form.get("supplierName").trim(),
         totalValue: totalValue,
         advanceValue: advanceValue,
-        payment: paymentStageText(form.get("paymentStage")),
+        payment: selectedPaymentStage,
         status: form.get("orderStage"),
         eta: form.get("orderEta"),
         updatedAt: new Date().toISOString()
       };
       var message = "New RapidFX order added.";
+      var savedOrder = payload;
+      var previousCode = "";
       if (editState.order) {
         var existing = data.orders.find(function(item) { return item.code === editState.order; });
         if (existing) {
           var oldCode = existing.code;
+          previousCode = oldCode;
           payload.createdAt = existing.createdAt || payload.updatedAt;
           Object.assign(existing, payload);
+          savedOrder = existing;
           delete existing.qty;
           delete existing.unitPrice;
           delete existing.value;
           if (oldCode !== payload.code) {
             data.statuses.forEach(function(status) { if (status.order === oldCode) status.order = payload.code; });
-            data.payments.forEach(function(payment) { if (payment.against === oldCode) payment.against = payload.code; });
+            data.payments.forEach(function(payment) {
+              if (payment.against === oldCode) payment.against = payload.code;
+              if (payment.autoOrderCode === oldCode) payment.autoOrderCode = payload.code;
+            });
           }
         }
         editState.order = null;
@@ -1876,6 +2228,7 @@
         payload.createdAt = payload.updatedAt;
         data.orders.unshift(payload);
       }
+      syncSupplierPaymentsForOrder(savedOrder, previousCode);
       event.currentTarget.reset();
       initDates();
       await saveData(message);
@@ -1927,6 +2280,10 @@
     function editOrder(code) {
       var order = data.orders.find(function(item) { return item.code === code; });
       if (!order) return;
+      if (isShipped(order)) {
+        viewShippedOrder(code);
+        return;
+      }
       editState.order = code;
       el("#orderCode").value = order.code || "";
       el("#productName").value = order.product || "";
@@ -1935,7 +2292,7 @@
       el("#orderTotalValue").value = orderTotal(order);
       el("#orderAdvanceValue").value = orderAdvance(order);
       el("#orderStage").value = order.status || "New booking";
-      el("#paymentStage").value = paymentStageText(order.payment || "Advance pending");
+      el("#paymentStage").value = paymentStageText(order.payment);
       el("#orderEta").value = order.eta || today;
       showPage("add");
       switchForm("order");
@@ -1947,6 +2304,117 @@
       data.statuses = data.statuses.filter(function(item) { return item.order !== code; });
       if (editState.order === code) editState.order = null;
       await saveData("Order deleted.");
+    }
+
+    function shipmentOrderDetails(order) {
+      return [
+        ["Order", order.code],
+        ["Product", order.product],
+        ["Supplier", order.supplier],
+        ["Order value", money.format(orderTotal(order))]
+      ].map(function(item) {
+        return "<div class='shipment-detail'><span>" + escapeHtml(item[0]) + "</span><strong>" + escapeHtml(item[1]) + "</strong></div>";
+      }).join("");
+    }
+
+    function openShipmentModal(code, readOnly) {
+      var order = data.orders.find(function(item) { return item.code === code; });
+      if (!order) return;
+      shipmentModalReadOnly = !!readOnly;
+      el("#shipmentOrderCode").value = order.code;
+      el("#shippedDate").value = order.shippedDate || today;
+      el("#shippedQuantity").value = order.shippedQuantity || "";
+      el("#shipmentValue").value = order.shipmentValue == null || order.shipmentValue === "" ? orderTotal(order) : order.shipmentValue;
+      el("#shipmentPaymentStage").value = paymentStageText(order.payment);
+      el("#shipmentRemarks").value = order.shipmentRemarks || "";
+      el("#shipmentOrderSummary").innerHTML = shipmentOrderDetails(order);
+      el("#shipmentModalTitle").textContent = readOnly ? "Shipment Details" : (isShipped(order) ? "Edit Shipment Details" : "Mark Order as Shipped");
+      el("#shipmentModalSubtitle").textContent = readOnly ? "Final dispatch record for " + order.code + "." : "Confirm the actual dispatch details for " + order.code + ".";
+      el("#shipmentSubmitBtn").textContent = isShipped(order) ? "Save Shipment" : "Mark as Shipped";
+      el("#shipmentSubmitBtn").classList.toggle("hidden", !!readOnly);
+      el("#cancelShipmentBtn").textContent = readOnly ? "Close" : "Cancel";
+      els("#shipmentForm input, #shipmentForm select, #shipmentForm textarea").forEach(function(field) { field.disabled = !!readOnly; });
+      el("#shipmentModal").classList.remove("hidden");
+    }
+
+    function closeShipmentModal() {
+      el("#shipmentModal").classList.add("hidden");
+      shipmentModalReadOnly = false;
+      els("#shipmentForm input, #shipmentForm select, #shipmentForm textarea").forEach(function(field) { field.disabled = false; });
+      el("#shipmentForm").reset();
+    }
+
+    function viewShippedOrder(code) {
+      openShipmentModal(code, true);
+    }
+
+    function syncShipmentStatus(order) {
+      var status = data.statuses.find(function(item) { return item.autoShipmentStatus && item.order === order.code; });
+      var payload = {
+        order: order.code,
+        stage: "Shipped",
+        progress: 100,
+        note: "Order shipped on " + order.shippedDate + (order.shipmentRemarks ? ". " + order.shipmentRemarks : "."),
+        date: order.shippedDate,
+        autoShipmentStatus: true
+      };
+      if (status) Object.assign(status, payload);
+      else {
+        payload.id = uid("st-shipped");
+        data.statuses.push(payload);
+      }
+    }
+
+    async function saveShipment(event) {
+      event.preventDefault();
+      if (shipmentModalReadOnly) return;
+      var form = new FormData(event.currentTarget);
+      var code = String(form.get("shipmentOrderCode") || "");
+      var order = data.orders.find(function(item) { return item.code === code; });
+      if (!order) {
+        closeShipmentModal();
+        showToast("Order could not be found.");
+        return;
+      }
+      var quantity = Number(form.get("shippedQuantity"));
+      var shipmentValue = Number(form.get("shipmentValue"));
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        showToast("Add a valid shipped quantity.");
+        return;
+      }
+      if (!Number.isFinite(shipmentValue) || shipmentValue < 0) {
+        showToast("Add a valid final shipment value.");
+        return;
+      }
+      var wasShipped = isShipped(order);
+      order.shipped = true;
+      order.status = "Shipped";
+      order.shippedDate = form.get("shippedDate");
+      order.shippedQuantity = quantity;
+      order.shipmentValue = shipmentValue;
+      order.payment = paymentStageText(form.get("shipmentPaymentStage"));
+      order.shipmentRemarks = String(form.get("shipmentRemarks") || "").trim();
+      order.updatedAt = new Date().toISOString();
+      syncSupplierPaymentsForOrder(order);
+      syncShipmentStatus(order);
+      closeShipmentModal();
+      showPage("shipped");
+      await saveData(wasShipped ? "Shipment updated." : "Order marked as shipped.");
+    }
+
+    async function reopenOrder(code) {
+      var order = data.orders.find(function(item) { return item.code === code; });
+      if (!order || !confirm("Reopen " + code + " and move it back to active Orders?")) return;
+      order.shipped = false;
+      order.status = "Ready to ship";
+      delete order.shippedDate;
+      delete order.shippedQuantity;
+      delete order.shipmentValue;
+      delete order.shipmentRemarks;
+      order.updatedAt = new Date().toISOString();
+      data.statuses = data.statuses.filter(function(status) { return !(status.autoShipmentStatus && status.order === code); });
+      showPage("orders");
+      await saveData("Order reopened.");
     }
 
     function editPayment(id) {
@@ -2065,9 +2533,29 @@
         { label: "ETA", width: 105, type: "date" }
       ];
       var rows = orders.map(function(order) {
-        return [order.code, order.product, order.model, order.supplier, orderTotal(order), orderAdvance(order), orderBalance(order), paymentStageText(order.payment), order.status, order.eta];
+        return [order.code, order.product, order.model, order.supplier, orderTotal(order), orderAdvance(order), orderBalance(order), paymentStageLabel(order.payment), order.status, order.eta];
       });
       exportExcelFile("rapidfx-orders.xls", "RapidFX Orders", columns, rows, [["", "", "", "Totals", totalValue, totalAdvance, totalBalance, "", "", ""]]);
+    }
+
+    function exportShippedOrdersExcel() {
+      var orders = filteredShippedOrders();
+      var totalValue = orders.reduce(function(sum, order) { return sum + orderShipmentValue(order); }, 0);
+      var columns = [
+        { label: "Order Code", width: 125 },
+        { label: "Product", width: 220, wrap: true },
+        { label: "Model", width: 105 },
+        { label: "Supplier", width: 190, wrap: true },
+        { label: "Quantity Shipped", width: 115, type: "number" },
+        { label: "Shipped Date", width: 110, type: "date" },
+        { label: "Total Shipment Value USD", width: 175, type: "money" },
+        { label: "Payment Status", width: 165 },
+        { label: "Shipment Remarks", width: 280, wrap: true }
+      ];
+      var rows = orders.map(function(order) {
+        return [order.code, order.product, order.model, order.supplier, order.shippedQuantity, order.shippedDate, orderShipmentValue(order), paymentStageLabel(order.payment), order.shipmentRemarks];
+      });
+      exportExcelFile("rapidfx-shipped-orders.xls", "RapidFX Shipped Orders", columns, rows, [["", "", "", "", "", "Total", totalValue, "", ""]]);
     }
 
     function exportPassbookExcel() {
@@ -2241,6 +2729,7 @@
       el("#orderForm").addEventListener("submit", addOrUpdateOrder);
       el("#paymentForm").addEventListener("submit", addOrUpdatePayment);
       el("#statusForm").addEventListener("submit", addOrUpdateStatus);
+      el("#shipmentForm").addEventListener("submit", saveShipment);
       el("#firebaseConfigForm").addEventListener("submit", saveFirebaseConfig);
       el("#loginForm").addEventListener("submit", loginFirebase);
       el("#showSetupBtn").addEventListener("click", toggleSetupPanel);
@@ -2248,6 +2737,9 @@
       el("#clearConfigBtn").addEventListener("click", clearFirebaseConfig);
       el("#logoutBtn").addEventListener("click", logoutFirebase);
       el("#cancelEditBtn").addEventListener("click", cancelEdit);
+      el("#closeShipmentModalBtn").addEventListener("click", closeShipmentModal);
+      el("#cancelShipmentBtn").addEventListener("click", closeShipmentModal);
+      el("#shipmentModal").addEventListener("click", function(event) { if (event.target === event.currentTarget) closeShipmentModal(); });
       el("#ordersFilterBtn").addEventListener("click", function() {
         ordersFilterOpen = !ordersFilterOpen;
         updateOrdersFilterPanel();
@@ -2263,8 +2755,26 @@
         renderOrders();
       });
       el("#ordersExcelBtn").addEventListener("click", exportOrdersExcel);
+      el("#shippedFilterBtn").addEventListener("click", function() {
+        shippedFilterOpen = !shippedFilterOpen;
+        updateShippedFilterPanel();
+      });
+      ["#shippedSearch", "#shippedSupplierFilter", "#shippedPaymentFilter", "#shippedDateFrom", "#shippedDateTo"].forEach(function(selector) {
+        el(selector).addEventListener("input", renderShippedOrders);
+        el(selector).addEventListener("change", renderShippedOrders);
+      });
+      el("#shippedClearFilterBtn").addEventListener("click", function() {
+        el("#shippedSearch").value = "";
+        el("#shippedSupplierFilter").value = "";
+        el("#shippedPaymentFilter").value = "";
+        el("#shippedDateFrom").value = "";
+        el("#shippedDateTo").value = "";
+        renderShippedOrders();
+      });
+      el("#shippedExcelBtn").addEventListener("click", exportShippedOrdersExcel);
       el("#passbookExcelBtn").addEventListener("click", exportPassbookExcel);
       el("#printBtn").addEventListener("click", function() { window.print(); });
+      document.addEventListener("keydown", function(event) { if (event.key === "Escape" && !el("#shipmentModal").classList.contains("hidden")) closeShipmentModal(); });
     }
 
     initPointerGlow();
